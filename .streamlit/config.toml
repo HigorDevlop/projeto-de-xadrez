@@ -1,0 +1,22 @@
+# Adaptado do tema Minimal instalado com o Streamlit; fontes locais.
+[theme]
+base = "dark"
+primaryColor = "#8B5CF6"
+backgroundColor = "#18181b"
+secondaryBackgroundColor = "#27272a"
+textColor = "#fafafa"
+borderColor = "#3f3f46"
+baseRadius = "6px"
+font = "sans-serif"
+
+[theme.sidebar]
+backgroundColor = "#101014"
+secondaryBackgroundColor = "#27272a"
+
+[server]
+address = "127.0.0.1"
+headless = true
+maxUploadSize = 5
+
+[browser]
+gatherUsageStats = false
