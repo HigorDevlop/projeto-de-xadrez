@@ -1,0 +1,7 @@
+# Retrato do tutor
+
+Arquivo: `bobby-expressions.png`. Gerado com a ferramenta integrada `image_gen` em 15/09/2026. Uma única imagem, com três retratos em terços iguais; a interface usa enquadramento CSS para selecionar sério, pensativo ou frustrado. Recriação artificial de Bobby Fischer, sem representação de uma fotografia histórica autêntica. As frases são originais do tutor virtual.
+
+Prompt utilizado:
+
+> Create ONE photorealistic portrait expression sprite sheet for a chess coaching app. Single wide image aspect ratio 3:1, divided into exactly three equal square portrait panels side by side, no gaps, no lines, no text. All three show the SAME recognizable young adult Bobby Fischer circa 1972, realistic photographic recreation: long angular face, prominent nose, brown swept side-part hair, clean shaven, dark navy suit, white shirt, muted tie. Head and upper chest at identical scale and placement in each panel, entire head within each square. Left panel: serious focused direct look. Middle panel: thoughtful, eyes slightly down, one hand near chin. Right panel: visibly angry/frustrated at a chess mistake, furrowed brows and tight mouth, still restrained and human, no shouting. Ultra realistic natural skin texture, lifelike eyes, soft cinematic portrait light, unobtrusive charcoal background across all panels. This is an artificial historical-character portrait asset, not a cartoon, not an illustration. No chessboard, no accessories, no writing, no watermark. Exact equal thirds composition suitable for CSS cropping to three square avatars.
