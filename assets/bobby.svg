@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 160" role="img" aria-label="Personagem ilustrado inspirado em Bobby Fischer">
+  <rect width="140" height="160" rx="24" fill="#ded5bd"/>
+  <circle cx="70" cy="67" r="48" fill="#c6ba96"/>
+  <path d="M16 160v-21q4-24 37-28h34q33 4 37 28v21" fill="#343d50"/>
+  <path d="M53 106h34v27H53" fill="#e3b18c"/>
+  <path d="m51 116 19 15 19-15-8 44H59" fill="#f8f1e7"/>
+  <path d="m65 130 10 0 4 9-6 21h-7l-5-21z" fill="#7b3341"/>
+  <path d="m48 116-11 19 12 5-6 7 14 13 4-22zm44 0 11 19-12 5 6 7-14 13-4-22z" fill="#49556b"/>
+  <ellipse cx="35" cy="73" rx="7" ry="13" fill="#e3b18c"/>
+  <ellipse cx="105" cy="73" rx="7" ry="13" fill="#e3b18c"/>
+  <path d="M36 47q2-26 34-26t34 26v32q-3 33-34 40Q39 110 36 79z" fill="#edc29e"/>
+  <path d="M35 67q-11-43 21-48 21-15 43 5 17 11 5 43l-7-24q-26 2-37-11-2 15-24 17z" fill="#614731"/>
+  <path d="M43 29q27-17 49 2M40 35q18-14 35-5" fill="none" stroke="#846247" stroke-width="4" stroke-linecap="round"/>
+  <path d="m45 63 15-2m19 0 15 3" stroke="#624a38" stroke-width="3" stroke-linecap="round"/>
+  <ellipse cx="53" cy="71" rx="3" ry="3.5" fill="#3d4d59"/>
+  <ellipse cx="86" cy="71" rx="3" ry="3.5" fill="#3d4d59"/>
+  <path d="m70 70-4 17 9 1m-18 10q13 7 25-1" fill="none" stroke="#b57c60" stroke-width="2" stroke-linecap="round"/>
+  <path d="M106 138h14v3h-14zm3-10h8l2 8h-12z" fill="#ded5bd"/>
+</svg>

@@ -7,6 +7,8 @@ from pathlib import Path
 import os
 import shutil
 import struct
+import csv
+import math
 from typing import Callable
 
 import chess
@@ -26,58 +28,79 @@ class Category:
 
 
 CATEGORIES = {
-    "book": Category("Lance de Livro", "Book", "#722F37", "#FFFFFF", "L",
+    "book": Category("Livro", "Book", "#9B7955", "#FFFFFF", "📖",
                      "Jogada catalogada no acervo carregado."),
-    "brilliant": Category("Genial", "Brilliant", "#FFFFFF", "#15151D", "!!!",
-                          "Sacrifício correto que mantém ou amplia vantagem decisiva."),
-    "best": Category("Excelente", "Best", "#8B5CF6", "#FFFFFF", "★",
+    "brilliant": Category("Brilhante", "Brilliant", "#26BDB0", "#102A43", "!!",
+                          "Bom sacrifício que preserva uma posição favorável (estimativa local)."),
+    "best": Category("Melhor", "Best", "#8B5CF6", "#FFFFFF", "★",
                      "Melhor lance sugerido pela engine."),
     "great": Category("Ótimo", "Great", "#1E40AF", "#FFFFFF", "!",
-                      "Precisão equivalente à linha principal."),
+                      "Única continuação boa identificada na busca (estimativa local)."),
+    "excellent": Category("Excelente", "Excellent", "#80A765", "#102A43", "✓✓",
+                          "Preserva quase todos os pontos esperados da posição."),
     "good": Category("Bom", "Good", "#7DD3FC", "#102A43", "✓",
                      "Mantém o equilíbrio ou a vantagem sem grandes concessões."),
-    "mistake": Category("Ruim", "Mistake", "#FACC15", "#332A00", "?",
-                        "Perda relevante de centipeões ou concessão posicional."),
-    "blunder": Category("Péssimo", "Blunder", "#DC2626", "#FFFFFF", "??",
+    "inaccuracy": Category("Imprecisão", "Inaccuracy", "#FACC15", "#332A00", "?!",
+                           "Reduz um pouco as chances de um bom resultado."),
+    "mistake": Category("Erro", "Mistake", "#F29A38", "#332A00", "?",
+                        "Reduz de forma relevante as chances de um bom resultado."),
+    "miss": Category("Oportunidade perdida", "Miss", "#D68C66", "#332A00", "×",
+                     "Deixa escapar uma oportunidade após um erro adversário (estimativa local)."),
+    "blunder": Category("Erro grave", "Blunder", "#DC2626", "#FFFFFF", "??",
                         "Perda tática grave ou revés decisivo na avaliação."),
 }
 
 
 @dataclass(frozen=True)
 class Thresholds:
-    great: int = 20
-    mistake: int = 80
-    blunder: int = 200
-    decisive: int = 300
+    excellent: float = 0.02
+    good: float = 0.05
+    inaccuracy: float = 0.10
+    mistake: float = 0.20
 
     def __post_init__(self):
-        if not 0 <= self.great < self.mistake < self.blunder:
-            raise ValueError("Os limites devem seguir: Ótimo < Ruim < Péssimo.")
-        if self.decisive <= 0:
-            raise ValueError("A vantagem decisiva deve ser positiva.")
+        if not 0 < self.excellent < self.good < self.inaccuracy < self.mistake <= 1:
+            raise ValueError("Limites inválidos de perda de pontos esperados.")
 
 
 def classify(*, in_book: bool, is_best: bool, sacrifice: bool,
-             best_cp: int, played_cp: int, best_mate: int | None = None,
-             played_mate: int | None = None, thresholds: Thresholds = Thresholds()) -> str:
-    """Pontuações sempre do ponto de vista de quem jogou; 100 cp = 1 peão."""
-    loss = max(0, best_cp - played_cp)
+             best_expected: float, played_expected: float,
+             second_expected: float | None = None, missed_opportunity: bool = False,
+             thresholds: Thresholds = Thresholds()) -> str:
+    """Public Chess.com loss bands, with local WDL estimates, not their private model.
+
+    At shared boundaries the worse category starts (e.g. 0.05 = inaccuracy).
+    Great, brilliant and miss are explicitly local heuristics.
+    """
+    loss = round(max(0, best_expected - played_expected), 8)
     if in_book:
         return "book"
-    if (sacrifice and played_cp >= thresholds.decisive
-            and loss <= thresholds.great and (played_mate is None or played_mate > 0)):
+    if (sacrifice and played_expected >= 0.5 and loss < thresholds.excellent
+            and second_expected is not None and second_expected < 0.95):
         return "brilliant"
+    if (is_best and second_expected is not None and best_expected >= 0.5
+            and second_expected < 0.5 and best_expected - second_expected >= 0.1):
+        return "great"
     if is_best:
         return "best"
-    enters_mate = played_mate is not None and played_mate <= 0 and (best_mate is None or best_mate > 0)
-    reversal = best_cp >= 150 and played_cp <= -150
-    if loss >= thresholds.blunder or enters_mate or reversal:
-        return "blunder"
-    if loss >= thresholds.mistake:
+    if missed_opportunity:
+        return "miss"
+    if loss < thresholds.excellent:
+        return "excellent"
+    if loss < thresholds.good:
+        return "good"
+    if loss < thresholds.inaccuracy:
+        return "inaccuracy"
+    if loss < thresholds.mistake:
         return "mistake"
-    if loss <= thresholds.great:
-        return "great"
-    return "good"
+    return "blunder"
+
+
+def expected_points(info, color, ply):
+    """Use the engine's W/D/L distribution; older engines use python-chess's model."""
+    if "wdl" in info:
+        return info["wdl"].pov(color).expectation()
+    return info["score"].pov(color).wdl(model="sf", ply=ply).expectation()
 
 
 def decode_text(data: bytes) -> str:
@@ -152,6 +175,12 @@ class BookIndex:
         for key, raw_move, weight, _ in struct.iter_unpack(">QHHI", data):
             if weight:
                 self.polyglot.setdefault((key, raw_move), set()).add(source)
+
+    def add_opening_catalog(self, folder: Path) -> None:
+        for path in sorted(folder.glob("*.tsv")):
+            with path.open(encoding="utf-8", newline="") as stream:
+                for row in csv.DictReader(stream, delimiter="\t"):
+                    self.add_pgn(row["pgn"], f"ECO {row['eco']} · {row['name']}", max_plies=160)
 
     def sources(self, board: chess.Board, move: chess.Move) -> list[str]:
         if move not in board.legal_moves:
@@ -229,6 +258,27 @@ class MoveReview:
     line: str
     sources: list[str]
     explanation: str
+    expected_loss: float = 0.0
+
+
+def player_accuracy(reviews: list[MoveReview], side: str) -> float | None:
+    """Local average of move accuracies; not Chess.com's private CAPS2 score.
+
+    Uses Lichess's public win-probability and per-move accuracy curves, comparing
+    the best continuation with the played continuation. Aggregation is a simple
+    arithmetic mean, not Lichess's volatility-weighted game aggregation.
+    """
+    scores = []
+    for review in reviews:
+        if review.side != side:
+            continue
+        played = review.white_cp if side == "Brancas" else -review.white_cp
+        best = played + review.loss
+        probability = lambda cp: 100 / (1 + math.exp(-0.00368208 * max(-1000, min(1000, cp))))
+        delta = max(0, probability(best) - probability(played))
+        score = 100.0 if delta == 0 else max(0, min(100, 103.1668 * math.exp(-0.04354 * delta) - 3.1669))
+        scores.append(score)
+    return round(sum(scores) / len(scores), 1) if scores else None
 
 
 def analyse_game(game: chess.pgn.Game, engine_path: str, book: BookIndex | None = None,
@@ -243,39 +293,48 @@ def analyse_game(game: chess.pgn.Game, engine_path: str, book: BookIndex | None 
     reviews = []
     with chess.engine.SimpleEngine.popen_uci(engine_path, timeout=30) as engine:
         engine.configure({"Threads": 1, "Hash": 128})
+        if "UCI_ShowWDL" in engine.options:
+            engine.configure({"UCI_ShowWDL": True})
         limit = chess.engine.Limit(depth=depth, time=seconds)
         for index, move in enumerate(moves, 1):
             if board.is_game_over():
                 raise ValueError("O PGN contém lances após o fim da partida.")
             color = board.turn
-            best = engine.analyse(board, limit)
+            candidates = engine.analyse(board, limit, multipv=min(2, board.legal_moves.count()))
+            best = candidates[0]
             best_move = best["pv"][0]
             played = best if best_move == move else engine.analyse(board, limit, root_moves=[move])
             best_score = best["score"].pov(color)
             played_score = played["score"].pov(color)
             best_cp = best_score.score(mate_score=100000)
             played_cp = played_score.score(mate_score=100000)
+            best_expected = expected_points(best, color, board.ply())
+            played_expected = expected_points(played, color, board.ply())
+            second_expected = expected_points(candidates[1], color, board.ply()) if len(candidates) > 1 else None
             sources = book.sources(board, move)
             pv = played.get("pv", [move])
             sacrifice = sacrifice_in_line(board, pv)
             category = classify(in_book=bool(sources), is_best=best_move == move,
-                                sacrifice=sacrifice, best_cp=best_cp, played_cp=played_cp,
-                                best_mate=best_score.mate(), played_mate=played_score.mate(),
+                                sacrifice=sacrifice, best_expected=best_expected, played_expected=played_expected,
+                                second_expected=second_expected,
+                                missed_opportunity=bool(reviews and reviews[-1].expected_loss >= 0.10
+                                                        and best_expected >= 0.70 and played_expected <= 0.50),
                                 thresholds=thresholds)
             loss = max(0, best_cp - played_cp)
             explanation = CATEGORIES[category].description
             if sources:
-                explanation += " Fonte: " + ", ".join(sources) + "."
+                explanation += " Fonte: " + ", ".join(sources[:2]) + "."
             elif category == "brilliant":
                 explanation += " Déficit material detectado na continuação da engine (heurística)."
             else:
-                explanation += f" Perda estimada: {loss} cp; melhor alternativa: {board.san(best_move)}."
+                explanation += f" Melhor alternativa: {board.san(best_move)}."
             white_score = played["score"].white()
             reviews.append(MoveReview(
                 index, f"{board.fullmove_number}{'.' if color else '...'}",
                 "Brancas" if color else "Pretas", board.san(move), move.uci(), category, loss,
                 white_score.score(mate_score=100000), white_score.mate(), board.san(best_move),
-                board.variation_san(pv[:10]), sources, explanation))
+                board.variation_san(pv[:6]), sources, explanation,
+                max(0, best_expected - played_expected)))
             board.push(move)
             if progress:
                 progress(index, len(moves))
@@ -284,7 +343,11 @@ def analyse_game(game: chess.pgn.Game, engine_path: str, book: BookIndex | None 
 
 def export_review(game: chess.pgn.Game, reviews: list[MoveReview]) -> str:
     copy = chess.pgn.read_game(StringIO(str(game)))
-    for node, review in zip(copy.mainline(), reviews):
+    by_ply = {review.ply: review for review in reviews}
+    for ply, node in enumerate(copy.mainline(), 1):
+        review = by_ply.get(ply)
+        if review is None:
+            continue
         category = CATEGORIES[review.category]
         # Preserve existing user comments and annotations.
         annotation = f"{category.label} {category.symbol}. {review.explanation}"
