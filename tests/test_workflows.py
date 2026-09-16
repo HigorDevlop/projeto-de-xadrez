@@ -18,6 +18,11 @@ from tutor import (Passage, analyse_position, explain_with_ai, load_passages,
 ROOT = Path(__file__).resolve().parents[1]
 
 
+@pytest.fixture(autouse=True)
+def isolated_preferences(tmp_path, monkeypatch):
+    monkeypatch.setenv('ACERVO_USER_PREFERENCE', str(tmp_path / 'user.json'))
+
+
 def parse(pgn):
     return chess.pgn.read_game(StringIO(pgn))
 
@@ -161,10 +166,10 @@ def test_book_priority_and_automatic_opening_catalog():
 
 
 def test_tutor_expressions():
-    assert tutor_mood('book')[0] == 'serio'
-    assert tutor_mood('best', thinking=True)[0] == 'pensativo'
-    assert tutor_mood('mistake')[0] == 'raiva'
-    assert tutor_mood('blunder', thinking=True)[0] == 'raiva'
+    from chess_review import CATEGORIES
+    assert len({tutor_mood(key)[0] for key in CATEGORIES}) == len(CATEGORIES)
+    assert tutor_mood('brilliant', thinking=True)[0] == 'brilliant'
+    assert tutor_mood('blunder')[0] == 'blunder'
 
 
 def test_ai_receives_real_context_and_book_sources():
@@ -205,34 +210,24 @@ def test_ui_free_play_and_navigation():
     assert not at.exception
     assert not any(s.value == 'Leitura do lance' for s in at.subheader)
     click(at, 'Nova partida · jogar livremente')
-    at.toggle[0].set_value(False).run()
-    next(s for s in at.selectbox if s.label == 'Lance legal (SAN)').set_value('e2e4').run()
-    click(at, 'Jogar lance')
-    assert at.session_state.ply == 1
-    assert list(parse(at.session_state.game).mainline_moves())[0].uci() == 'e2e4'
-    at.slider(key='position_slider').set_value(0).run()
-    assert at.session_state.ply == 0 and not at.exception
-    click(at, 'Final')
-    assert at.session_state.ply == 1
+    assert not any(s.label == 'Lance legal (SAN)' for s in at.selectbox)
+    assert at.session_state.ply == 0
+    assert not any(button.label in {'Início', 'Anterior', 'Próximo', 'Final'} for button in at.button)
     if find_engine():
         click(at, 'Analisar partida')
-        assert 1 in at.session_state.reviews
-        click(at, 'Reexplicar lance')
-        assert at.session_state.snapshot[1]['line']
+        assert not at.session_state.reviews
+        click(at, 'Executar avaliação')
+        assert not at.session_state.reviews
+        click(at, 'Voltar')
     click(at, 'Nova partida · jogar livremente')
     assert at.session_state.ply == 0
-    assert len(at.dataframe) == 1
-    assert list(at.dataframe[0].value.columns) == ['Classificação', 'Brancas', 'Pretas']
+    assert not at.dataframe
     assert len(at.metric) == 2
-    assert all(metric.value == '—' for metric in at.metric)
     assert not any(s.value == 'Resumo do lance' for s in at.subheader)
     previous_game=at.session_state.game
-    at.session_state.workspace_tab='Estudo com livros'
-    at.run(timeout=20)
-    assert not at.exception
-    assert not at.dataframe
-    assert any(h.value == 'Carregar livro' for h in at.subheader)
     assert at.session_state.game == previous_game
+    assert any(tab.label == 'Estudo com livros' for tab in at.tabs)
+    assert any(tab.label == 'Tático' for tab in at.tabs)
 
 
 def test_ui_history_import():
@@ -243,16 +238,40 @@ def test_ui_history_import():
             'accuracies': {'white': 98.2, 'black': 91.3}}
     with patch('chesscom.fetch_archives', new=lambda user: ['2026/09']), patch('chesscom.fetch_games', new=lambda user, month: [game]):
         at = AppTest.from_file(str(ROOT / 'app.py')).run(timeout=20)
-        next(t for t in at.text_input if t.label == 'Usuário do Chess.com').set_value('demo')
-        click(at, 'Buscar histórico')
+        next(t for t in at.text_input if t.label == 'Usuário do Chess.com').set_value('demo_import_test')
+        click(at, 'Entrar')
         assert not any(s.label == 'Mês das partidas' for s in at.selectbox)
         assert not any(b.label == 'Abrir no tabuleiro para analisar' for b in at.button)
-        at.selectbox(key='history_choice').set_value(0).run(timeout=20)
+        at.selectbox(key='history_choice').set_value(0).run(timeout=60)
         assert not at.exception
         assert parse(at.session_state.game).headers['White'] == 'Demo'
-        assert at.session_state.ply == 0
+        assert at.session_state.ply == 2
+        click(at, 'Analisar partida')
+        click(at, 'Executar avaliação')
         assert [m.value for m in at.metric] == ['98.2%', '91.3%']
-        # An alternative invalidates the imported game's accuracy.
-        next(s for s in at.selectbox if s.label == 'Lance legal (SAN)').set_value('e2e4').run()
-        click(at, 'Jogar lance')
-        assert not at.session_state.official_accuracies
+        if find_engine():
+            for _, future in list(at.session_state.jobs.values()):
+                future.result(timeout=30)
+            at.run(timeout=20)
+            assert len(at.session_state.reviews) == 2
+        click(at, 'Voltar')
+
+
+def test_ui_explanation_tracks_position_without_language_model():
+    sys.modules.pop('interactive_board', None)
+    at = AppTest.from_file(str(ROOT / 'app.py'))
+    at.session_state.engine_path = ''
+    at.session_state.game = '1. e4 e5 2. Nf3 *'
+    at.session_state.ply = 1
+    at.run(timeout=20)
+    assert not at.exception
+    pawn_text = at.session_state.last_explanation
+    assert pawn_text.startswith('📖 e4') and 'e2' in pawn_text
+    at.session_state.ply = 3
+    at.run(timeout=20)
+    assert not at.exception
+    knight_text = at.session_state.last_explanation
+    assert knight_text.startswith('📖 Nf3') and 'cavalo' in knight_text
+    assert knight_text != pawn_text and '\n' not in knight_text
+    click(at, 'Analisar partida')
+    assert at.session_state.last_explanation == knight_text

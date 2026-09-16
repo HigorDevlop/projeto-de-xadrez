@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: xadrez-preparo
+    runtime: docker
+    plan: free
+    healthCheckPath: /_stcore/health
+    autoDeploy: true

@@ -3,5 +3,7 @@ __pycache__/
 *.pyc
 .pytest_cache/
 .streamlit/secrets.toml
+.streamlit/last_chesscom_user.json
 *.log
 .server.pid
+.streamlit/local_ai.json

@@ -16,7 +16,7 @@ secondaryBackgroundColor = "#27272a"
 [server]
 address = "127.0.0.1"
 headless = true
-maxUploadSize = 5
+maxUploadSize = 200
 
 [browser]
 gatherUsageStats = false

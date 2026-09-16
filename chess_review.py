@@ -196,17 +196,28 @@ class BookIndex:
 
 
 def find_engine() -> str:
+    root = Path(__file__).resolve().parent
+    bundled = root / "engines"
+    names = ("stockfish.exe",) if os.name == "nt" else ("stockfish", "stockfish-linux", "stockfish-mac")
+    for name in names:
+        candidate = bundled / name
+        if candidate.is_file():
+            return str(candidate)
+    if bundled.is_dir():
+        for candidate in sorted(bundled.rglob("stockfish*")):
+            is_native = candidate.suffix.lower() == ".exe" if os.name == "nt" else candidate.suffix == ""
+            if candidate.is_file() and is_native:
+                return str(candidate)
     configured = os.environ.get("STOCKFISH_PATH")
     if configured and Path(configured).is_file():
         return configured
     located = shutil.which("stockfish")
     if located:
         return located
-    root = Path(__file__).resolve().parent
-    for folder in (root / "engines", root.parent.parent / "stockfish-windows-x86-64-avx2"):
-        if folder.is_dir():
-            for candidate in folder.rglob("stockfish*.exe"):
-                return str(candidate)
+    legacy = root.parent.parent / "stockfish-windows-x86-64-avx2"
+    if legacy.is_dir():
+        for candidate in legacy.rglob("stockfish*.exe"):
+            return str(candidate)
     return ""
 
 
