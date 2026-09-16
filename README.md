@@ -1,6 +1,8 @@
 # Acervo de xadrez
 
-Execute `iniciar.bat` e abra http://127.0.0.1:8501. O inicializador instala as dependências necessárias.
+Depois de clonar o repositório, execute `python iniciar.py` na pasta do projeto e abra http://127.0.0.1:8501. O inicializador multiplataforma cria o ambiente virtual e instala as dependências necessárias automaticamente.
+
+No Windows, `iniciar.bat` e `iniciar.ps1` continuam disponíveis como atalhos equivalentes.
 
 - Arraste as peças ou clique em origem e destino. A peça acompanha o ponteiro, desliza ao soltar e retorna à origem se o destino for ilegal; a animação respeita a preferência por movimento reduzido. Promoções permitem escolher a peça. Em **Nova partida · jogar livremente**, jogue pelos dois lados sem precisar analisar antes.
 - **Classificar ao mover peças** usa o Stockfish configurado para avaliar cada novo lance. O símbolo aparece na casa de destino e na lista de lances. Sem engine, as peças continuam funcionando; avaliações não são inventadas.
