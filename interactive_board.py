@@ -5,7 +5,7 @@ import streamlit as st
 
 _BOARD = st.components.v2.component(
     "acervo_interactive_board",
-    html='<div class="board" aria-label="Tabuleiro interativo"></div><div class="promotion"></div><p class="status" aria-live="polite"></p>',
+    html='<div class="board" aria-label="Tabuleiro interativo"></div><div class="promotion"></div>',
     css="""
     .board {display:grid;grid-template-columns:repeat(8,1fr);width:100%;max-width:560px;
       aspect-ratio:1; border:4px solid #383a39;border-radius:5px;overflow:hidden;box-sizing:border-box}
@@ -14,6 +14,11 @@ _BOARD = st.components.v2.component(
     .light {background:#e5ded0}.dark {background:#69746b}
     .square svg {width:88%;height:88%;pointer-events:none;vertical-align:middle}
     .square.last {box-shadow:inset 0 0 0 4px #cba960}
+    .square.brilliant:before {content:'';position:absolute;inset:3%;border-radius:50%;pointer-events:none;
+      background:radial-gradient(circle,#38bdf844 10%,#009dff99 50%,transparent 72%);
+      box-shadow:0 0 20px 8px #009dff;animation:brilliant-aura 900ms ease-in-out 3}
+    @keyframes brilliant-aura {0%,100% {opacity:.25;transform:scale(.7)} 50% {opacity:1;transform:scale(1.1)}}
+    @media (prefers-reduced-motion:reduce) {.square.brilliant:before {animation:none;opacity:.5}}
     .square.selected {box-shadow:inset 0 0 0 4px #8b5cf6}
     .square:focus-visible {outline:4px solid #8b5cf6;outline-offset:-4px;z-index:2}
     .square.target:after {content:'';position:absolute;inset:38%;border-radius:50%;background:#17132480;pointer-events:none}
@@ -30,13 +35,21 @@ _BOARD = st.components.v2.component(
     """,
     js="""
     export default function({data,parentElement,setTriggerValue}) {
-      parentElement._acervoCleanup?.();
+      // Engine/tutor updates must not replace squares during a drag.
+      const signature=JSON.stringify([data.fen,data.cells.map(c=>c.name),data.legal]);
+      const existing=parentElement._acervoState;
+      if(existing?.signature===signature) {
+        existing.update(data,setTriggerValue);
+        document.addEventListener('keydown',existing.keyboard);
+        return existing.detach;
+      }
+      existing?.cleanup();
+      if(parentElement._auraFen!==data.fen)parentElement._lastAura=null;
+      parentElement._auraFen=data.fen;
       const grid=parentElement.querySelector('.board');
-      const status=parentElement.querySelector('.status');
       const promo=parentElement.querySelector('.promotion');
       grid.replaceChildren(); promo.replaceChildren();
       let selected=null, pending=false, drag=null, ghost=null, animating=false, suppressClick=false, disposed=false;
-      status.textContent='Arraste uma peça ou clique na origem e no destino.';
       const buttons=new Map();
       function select(square) {
         selected=square;
@@ -48,7 +61,6 @@ _BOARD = st.components.v2.component(
       function emit(uci) {
         if(pending)return;
         pending=true; promo.replaceChildren();
-        status.textContent='Atualizando posição…';
         setTriggerValue('move',{uci,fen:data.fen});
       }
       function attempt(from,to) {
@@ -56,7 +68,7 @@ _BOARD = st.components.v2.component(
         if(!candidates.length)return false;
         if(candidates.length===1)emit(candidates[0]);
         else {
-          promo.replaceChildren();status.textContent='Escolha a peça para a promoção:';
+          promo.replaceChildren();
           for(const m of candidates) {
             const button=document.createElement('button');
             button.textContent=({q:'Dama',r:'Torre',b:'Bispo',n:'Cavalo'})[m[4]];
@@ -73,20 +85,10 @@ _BOARD = st.components.v2.component(
         button.setAttribute('aria-label',cell.label);
         button.classList.toggle('last',data.last.includes(cell.name));
         if(cell.svg)button.innerHTML=cell.svg;
-        if(data.badge && cell.name===data.badge.square) {
-          const badge=document.createElement('span');badge.className='quality';badge.textContent=data.badge.symbol;
-          badge.style.background=data.badge.color;badge.style.color=data.badge.ink;
-          badge.title=data.badge.label;button.append(badge);
-        }
         const movable=data.legal.some(m=>m.startsWith(cell.name));
         button.draggable=false;
         button.classList.toggle('movable',movable);
-        button.onclick=()=>{
-          if(suppressClick){suppressClick=false;return;}
-          if(pending || animating)return;
-          if(selected && attempt(selected,cell.name))return;
-          promo.replaceChildren();select(movable && selected!==cell.name ? cell.name:null);
-        };
+        button.onclick=()=>{if(suppressClick)suppressClick=false;};
         button.onpointerdown=e=>{
           if(!movable || pending || animating || e.button!==0)return;
           drag={from:cell.name,button,x:e.clientX,y:e.clientY,id:e.pointerId,moved:false};
@@ -128,7 +130,7 @@ _BOARD = st.components.v2.component(
           if(disposed)return;
           animating=false;
           if(legal)attempt(released.from,to);
-          else {select(null);status.textContent='Destino inválido. A peça voltou à origem.';}
+          else {select(null);}
           // Keep the piece at its destination until Python confirms the move.
           if(!pending){movingGhost.remove();ghost=null;button.classList.remove('dragging');}
           setTimeout(()=>{suppressClick=false;},0);
@@ -137,7 +139,26 @@ _BOARD = st.components.v2.component(
         button.onpointercancel=e=>finish(e,true);
         buttons.set(cell.name,button);grid.append(button);
       }
+      function paintBadge() {
+        for(const [name,button] of buttons) {
+          button.querySelector('.quality')?.remove();
+          button.classList.toggle('last',data.last.includes(name));
+          if(data.badge && name===data.badge.square) {
+            if(data.badge.symbol==='!!') {
+              const auraKey=data.fen+name;
+              if(parentElement._lastAura!==auraKey) {
+                button.classList.add('brilliant');parentElement._lastAura=auraKey;
+              }
+            } else button.classList.remove('brilliant');
+            const badge=document.createElement('span');badge.className='quality';badge.textContent=data.badge.symbol;
+            badge.style.background=data.badge.color;badge.style.color=data.badge.ink;
+            badge.title=data.badge.label;button.append(badge);
+          } else button.classList.remove('brilliant');
+        }
+      }
+      paintBadge();
       function keyboard(event) {
+        if(!data.navigation)return;
         if(event.altKey || event.ctrlKey || event.metaKey || pending || drag || animating)return;
         const editing=event.composedPath().some(el=>el.matches?.('input,textarea,select,[contenteditable="true"],[role="slider"],[role="combobox"],[role="listbox"]'));
         if(editing)return;
@@ -150,16 +171,19 @@ _BOARD = st.components.v2.component(
         setTriggerValue('navigate',{from:data.ply,to:target});
       }
       document.addEventListener('keydown',keyboard);
-      const cleanup=()=>{disposed=true;document.removeEventListener('keydown',keyboard);ghost?.remove();};
-      parentElement._acervoCleanup=cleanup;
-      return cleanup;
+      const detach=()=>document.removeEventListener('keydown',keyboard);
+      const cleanup=()=>{disposed=true;detach();ghost?.remove();};
+      parentElement._acervoState={signature,keyboard,detach,cleanup,update:(next,trigger)=>{
+        data=next;setTriggerValue=trigger;pending=false;paintBadge();
+      }};
+      return detach;
     }
     """,
 )
 
 
 def interactive_board(board, *, flip=False, last_move=None, category=None, on_move,
-                      ply=0, total=0, on_navigate=None):
+                      ply=0, total=0, on_navigate=None, key="interactive_board", disabled=False):
     names = {chess.PAWN: "peão", chess.KNIGHT: "cavalo", chess.BISHOP: "bispo",
              chess.ROOK: "torre", chess.QUEEN: "dama", chess.KING: "rei"}
     cells = []
@@ -176,7 +200,7 @@ def interactive_board(board, *, flip=False, last_move=None, category=None, on_mo
               "label": category.label, "color": category.color, "ink": category.ink}
              if last_move and category else None)
     return _BOARD(data={"fen": board.fen(), "cells": cells,
-                        "legal": [] if board.is_game_over() else [m.uci() for m in board.legal_moves],
+                        "legal": [] if disabled or board.is_game_over() else [m.uci() for m in board.legal_moves],
                         "last": [chess.square_name(s) for s in (last_move.from_square, last_move.to_square)] if last_move else [],
-                        "badge": badge, "ply": ply, "total": total}, key="interactive_board",
+                        "badge": badge, "ply": ply, "total": total, "navigation": on_navigate is not None}, key=key,
                   on_move_change=on_move, on_navigate_change=on_navigate or (lambda: None))

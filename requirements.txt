@@ -2,3 +2,4 @@ streamlit==1.63.0
 chess==1.11.2
 pandas>=2.2,<4
 pypdf>=6.0,<7
+Pillow>=10,<13
