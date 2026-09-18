@@ -1,64 +1,63 @@
 # Acervo de xadrez
 
-Site: [XadrezPreparo.com](https://XadrezPreparo.com)
+Execute `python iniciar.py` nesta pasta e abra http://127.0.0.1:8501. O inicializador cria o ambiente virtual e instala as dependências. No Windows, também há `iniciar.bat` e `iniciar.ps1`.
 
-Depois de clonar o repositório, execute `python iniciar.py` na pasta do projeto e abra http://127.0.0.1:8501. O inicializador multiplataforma cria o ambiente virtual e instala as dependências necessárias automaticamente.
+## Stockfish e livros
 
-No Windows, `iniciar.bat` e `iniciar.ps1` continuam disponíveis como atalhos equivalentes.
+O único motor de IA é o **Stockfish**. A cópia Windows restaurada é a versão 17.1, em `engines/stockfish.exe`. Para outra instalação ou sistema operacional, configure `STOCKFISH_PATH` ou coloque o binário nativo em `engines/stockfish`. Não há Ollama, modelo de linguagem, API de análise ou chave necessária. Veja [engines/README.md](engines/README.md).
 
-### Stockfish
+O aplicativo primeiro extrai o texto dos livros e indexa comentários PGN por posição, além de temas em português/inglês (centro, desenvolvimento, roque, estrutura de peões, finais etc.). Os arquivos da barra lateral e da aba **Estudo com livros** são combinados. Esse índice é preparado antes de iniciar o motor e reutilizado enquanto os livros não mudarem.
 
-Para usar a classificação de lances no Windows, nenhuma configuração adicional é necessária: o Stockfish 19 já está incluído em `engines/stockfish.exe`. Em Linux e macOS, coloque o binário nativo em `engines/stockfish` ou `engines/stockfish-mac`. Consulte [engines/README.md](engines/README.md) para detalhes.
+Depois, o Stockfish avalia a melhor jogada, a segunda alternativa e o lance realizado. O aplicativo aplica as faixas de pontos esperados abaixo e compõe explicações determinísticas com trechos literais, arquivo/página e fatos verificáveis do tabuleiro. Comentários PGN de uma posição exata têm prioridade; correspondências temáticas são identificadas como tal. Se nenhum trecho corresponder, isso aparece explicitamente. Livros Polyglot contêm jogadas, não prosa.
 
-## Publicação
+**O Stockfish não lê nem é treinado pelos livros.** A consulta bibliográfica é feita pelo aplicativo; o cálculo enxadrístico é feito pelo motor. Não há compreensão semântica por um modelo de linguagem. O material orienta as explicações, mas não substitui nem altera arbitrariamente os cálculos. Os trechos usados também ficam disponíveis no painel do lance e no PGN exportado.
 
-O projeto inclui `Dockerfile` e `render.yaml` para publicação no Render. No painel do Render, crie um **Blueprint**, selecione este repositório do GitHub e confirme o serviço `xadrez-preparo`. Depois que o serviço estiver online, adicione `XadrezPreparo.com` em **Settings → Custom Domains**.
+Todas as explicações são preparadas em um único lote em segundo plano. Navegar pelos lances usa os resultados da sessão, sem novas análises. Trocar partida, variante, livros, rating ou qualidade invalida o lote. O trabalho anterior é cancelado entre buscas; respostas antigas não substituem a partida atual. Há apenas um processo Stockfish ativo por aplicativo, com **1 thread e 64 MB de hash** (o consumo total inclui também o executável e suas redes NNUE). O processo encerra ao concluir, falhar ou cancelar.
 
-No Registro.br, crie o registro `CNAME` para `www` apontando para o endereço fornecido pelo Render. Para o domínio raiz, use o registro `A` indicado pelo Render. Acesse o site pelo endereço configurado somente depois que o certificado HTTPS e a propagação DNS forem concluídos.
+As qualidades Rápida, Equilibrada e Profunda limitam cada busca a 0,08 s, 0,25 s e 0,7 s, respectivamente, além de limites de profundidade. Isso implica uma aproximação dependente do tempo disponível. Não é preciso conexão para avaliar uma partida com os livros já carregados; histórico Chess.com e táticos Lichess continuam usando suas APIs públicas.
 
-- Arraste as peças. A peça acompanha o ponteiro, desliza ao soltar e retorna à origem se o destino for ilegal; a animação respeita a preferência por movimento reduzido. Promoções permitem escolher a peça. Em **Nova partida · jogar livremente**, jogue pelos dois lados sem precisar analisar antes.
-- **Classificar ao mover peças** usa o Stockfish configurado para avaliar cada novo lance. O símbolo aparece na casa de destino e na lista de lances. Sem engine, as peças continuam funcionando; avaliações não são inventadas.
-- As setas **←/→** navegam pelos lances; **Home/End** levam ao início/final. Os atalhos não atuam durante a edição de textos ou seletores. O tabuleiro não exibe coordenadas.
-- **Análise da partida** fica compacta logo abaixo do tabuleiro, com precisão e contagens por jogador, sem centipeões. As seções separadas de leitura e resumo do lance foram removidas. Ao testar uma alternativa, a linha anterior é preservada como variante no PGN exportado.
-- No **Histórico de partidas · Chess.com**, busque o usuário e selecione a partida: ela abre automaticamente no tabuleiro. O aplicativo carrega até 100 partidas recentes, consultando automaticamente até 12 arquivos mensais com partidas, sem exigir seleção de mês nem outro botão para abrir. São consultados dados públicos; não é preciso senha.
-- Na primeira abertura, informe o usuário do Chess.com para entrar. O último usuário fica salvo localmente e é carregado automaticamente nas próximas aberturas; use **Trocar usuário** para removê-lo. Esse acesso consulta apenas dados públicos e não armazena senha.
-- Os livros são carregados pela barra lateral, com limite de 200 MB por arquivo. A pergunta ao tutor fica na caixa de explicação.
-- A engrenagem ao lado do tabuleiro controla a exibição da qualidade, a orientação, a qualidade da análise e a engine selecionada. A ferramenta lateral **Analisar partida** aceita PGN ou FEN e mostra um tabuleiro interativo com o resumo da avaliação.
+## Perfil e tabuleiro
 
-## Tutor e livros
+- O quadrado no canto superior esquerdo abre o seletor de imagens do navegador, incluindo a galeria em dispositivos móveis. Arraste a imagem e ajuste o zoom para recortá-la; **Usar foto** envia somente o corte quadrado. PNG, JPEG e WebP são aceitos, até 10 MB e 20 milhões de pixels. A foto permanece na sessão.
+- O nick e o rating público da modalidade jogada mais recentemente no Chess.com aparecem abaixo da foto. Não é necessária senha. O último nick é salvo localmente; a consulta de rating ocorre em segundo plano.
+- Arraste peças, escolha promoções e use as setas ←/→ ou Home/End para navegar. Alternativas preservam a linha anterior como variante no PGN exportado.
+- O ícone de folha ao lado da engrenagem abre a lista de lances PGN. Clique em qualquer lance ou em **Posição inicial** para atualizar o tabuleiro e a explicação. A aba **Anotações** também contém a lista e o tabuleiro.
+- O histórico consulta até 100 partidas públicas recentes, em até 12 meses com partidas. Selecione uma partida para abri-la automaticamente.
+- Livros PDF com texto selecionável, TXT, Markdown, PGN comentado e Polyglot podem ser carregados. Os trechos são indexados localmente e as fontes usadas são exibidas com a explicação. PDFs digitalizados precisam de OCR.
 
-O painel mostra somente o nome **Bobby Fischer**, o retrato realista e uma explicação em parágrafo único, atualizada automaticamente ao trocar o lance. O texto descreve o movimento concreto, desenvolvimento, controle de casas, capturas, ameaças, resposta adversária e uma melhoria pertinente. Sem modelo de linguagem, o texto usa efeitos verificados no tabuleiro; com Ollama, esses fatos e os trechos recuperados orientam a explicação. O [prompt e a origem do retrato](assets/IMAGE_GENERATION.md) estão documentados. Carregue livros PDF com texto selecionável, TXT/Markdown, PGN comentado ou livros Polyglot (`.bin`). As fontes e páginas aparecem em **Trechos dos livros nesta posição**. PDFs digitalizados precisam de OCR; Polyglot contém jogadas, sem explicações em prosa.
+## Táticos
 
-A busca do Chess.com e a foto de perfil ficam no menu lateral recolhido; use a seta no canto superior esquerdo para abri-lo. Fotos PNG, JPEG e WebP são validadas e normalizadas; imagens inválidas exibem um erro sem interromper a sessão. A aba **Estudo com livros** contém somente um tabuleiro inicial e o campo de upload, sem processamento do livro nesta etapa e sem alterar a partida da aba Análise.
+Escolha um dos 12 cards ilustrados e selecione os ratings inicial e final. A busca começa automaticamente quando ambos estão definidos. Não há slider nem botão adicional de busca.
 
-## Classificação e aberturas
+A [API pública do Lichess](https://lichess-org.github.io/api/#tag/Puzzles/operation/apiPuzzleNext) oferece dificuldade relativa, com referência 1500 para visitantes anônimos, e não um filtro numérico exato. O cliente faz no máximo três tentativas sequenciais, valida tema e rating e **não apresenta exercícios fora da faixa como resultados compatíveis**. Se não encontrar, informa o motivo e permite ampliar a faixa ou tentar novamente. Não baixa o banco de táticos. Faixas extremas ou estreitas podem não retornar resultados.
 
-Os limites seguem a [tabela pública do Chess.com](https://support.chess.com/en/articles/8572705-how-are-moves-classified-what-is-a-blunder-or-brilliant-etc): perdas de pontos esperados abaixo de 0,02 são Excelente; de 0,02 a 0,05, Bom; de 0,05 a 0,10, Imprecisão; de 0,10 a 0,20, Erro; a partir de 0,20, Erro grave. Limites inferiores inclusivos. O primeiro lance da engine é Melhor quando não recebe categoria especial.
+**Recomeçar tático** restaura a posição inicial sem acesso à rede. Cada tentativa tem uma revisão de estado: eventos antigos são ignorados, e seleção, promoção e animação são limpas. **Próximo tático** faz uma nova busca. A partida principal permanece preservada.
 
-**É uma aproximação, não o algoritmo idêntico do Chess.com.** As probabilidades vêm da distribuição vitória/empate/derrota do Stockfish (com fallback do python-chess para engines antigas), não do modelo privado ajustado ao rating. Brilhante, Ótimo e Oportunidade perdida usam heurísticas locais e podem divergir do site. Oportunidade perdida precisa da análise da sequência, pois depende do erro adversário anterior.
+## Pontos esperados e classificação
 
-O [catálogo de aberturas CC0 do Lichess](data/openings/README.md) é incluído automaticamente, além dos livros PGN/Polyglot carregados. Todo lance encontrado recebe prioridade de Livro e o símbolo 📖, mesmo antes da análise. Textos de PDF, sem linhas de jogadas indexáveis, servem como referências do tutor e não como prova automática de lance de abertura.
+O Stockfish fornece WDL, convertido em pontos esperados entre 0 e 1 da perspectiva do jogador que fez o lance: `P(vitória) + 0,5 × P(empate)`. Isso não é estritamente a probabilidade de vitória quando empates são possíveis. A perda é a diferença entre a melhor continuação e a jogada realizada, sem usar variação bruta de centipeões.
 
-A continuação de até três jogadas completas (seis meios-lances) é calculada automaticamente com Stockfish e incorporada ao texto corrido. **Reexplicar lance** permite tentar novamente a IA. A profundidade real depende da qualidade selecionada. A linha é uma possibilidade de jogo, não uma previsão.
+| Categoria | Regra |
+|---|---|
+| Brilhante (!!) | Sacrifício produtivo de peça validado na continuação do Stockfish, posição com pelo menos 0,5 ponto esperado e pequena perda tolerada conforme o rating |
+| Grande Lance (!) | Perda zero, ao menos 0,5 ponto esperado e segunda melhor alternativa pelo menos 0,10 inferior |
+| Melhor | Perda zero |
+| Excelente | Perda maior que zero e menor que 0,02 |
+| Bom | De 0,02 até menos de 0,05 |
+| Imprecisão | De 0,05 até menos de 0,10 |
+| Erro | De 0,10 até 0,20, inclusive |
+| Capivorada | Acima de 0,20 |
 
-Para gerar explicações por IA, instale e inicie [Ollama](https://ollama.com), com um modelo de texto adequado ao seu computador. Na seção **Tutor** da barra lateral, clique em **Detectar modelos locais** ou informe o nome exato mostrado por `ollama list`. O app usa a API local em `127.0.0.1:11434`; envia a posição, a linha da engine e até três trechos relevantes ao modelo. Sem Ollama, continua explicando os efeitos verificados de cada lance. Perguntas livres precisam do modelo local. A integração não instala nem baixa modelos automaticamente.
+As regras especiais são aproximações documentadas, não o algoritmo privado do Chess.com. O sacrifício exige déficit material de pelo menos três peões mantido após duas oportunidades de resposta ou até mate; ofertas de peão e trocas equilibradas não bastam. A tolerância de perda para Brilhante diminui de 2% para 0,5% conforme o rating: `clamp(0,02 − (rating − 800) / 120000, 0,005, 0,02)`. Usa-se 1500 quando o rating não está disponível. A qualidade da classificação depende da análise WDL do Stockfish; suas probabilidades não são calibradas ao rating humano. O rating ajusta somente a tolerância de Brilhante.
 
-As abas **Partida**, **Análise** e **Anotações** compartilham a revisão com aparência de página de livro: uma coluna completa de símbolos e contagens, seleção do jogador e precisão abaixo. O tutor também aparece na aba Análise. Os cálculos da engine e da IA ocorrem em segundo plano; resultados de outra partida não substituem a posição atual. O símbolo precede a notação na explicação. Cada categoria tem um retrato próprio, e lances brilhantes produzem uma aura azul na peça, respeitando a preferência do sistema por movimento reduzido.
+O catálogo de aberturas CC0 do Lichess continua disponível como fonte, mas não sobrepõe a classificação por pontos esperados. Antes de receber a análise, lances catalogados podem mostrar o símbolo de Livro.
 
-## Táticos e navegação
+Precisão oficial do Chess.com é preservada quando disponível. Nos demais casos, a precisão é uma média estimada de uma curva exponencial aplicada à perda de pontos esperados; não reproduz CAPS2 nem a agregação do Lichess.
 
-A aba **Tático** consulta sob demanda a [API pública do Lichess](https://lichess.org/api#tag/Puzzles/operation/apiPuzzleNext), sem baixar a base inteira. O botão **Random** busca um exercício aleatório; também há temas e dificuldades. Arraste a peça para responder: a solução é conferida no servidor, a resposta adversária é aplicada automaticamente, e erros permitem tentar de novo. Há dica e opção de recomeçar. Os exercícios usam a [base pública CC0 do Lichess](https://database.lichess.org/#puzzles) e precisam de conexão com a internet. A partida em análise permanece preservada.
+Referência conceitual: [classificação de lances do Chess.com](https://support.chess.com/en/articles/8572705-how-are-moves-classified-what-is-a-blunder-or-brilliant-etc). Os limites acima seguem o pedido deste projeto, incluindo Capivorada estritamente acima de 20%.
 
-Cada aba tem uma seta **Voltar**, que percorre o histórico de abas visitadas. Ela fica desabilitada quando ainda não há uma aba anterior.
+## Publicação e testes
 
-Os livros e partidas importados permanecem na sessão e nos caches locais do Streamlit; baixe o PGN para guardar a partida. O tutor consulta trechos, não treina um modelo com o livro inteiro.
+`Dockerfile` e `render.yaml` permitem publicar no Render. A imagem Linux instala Stockfish e define STOCKFISH_PATH. Não são necessárias credenciais de IA.
 
-## Precisão
-
-Quando o arquivo público inclui `accuracies`, os valores são exibidos como **Precisão**, com fonte Chess.com. Testar uma variante descarta esses valores, porque já não representam a partida modificada. Quando não há valores oficiais, **Precisão estimada** calcula a média aritmética da precisão dos lances avaliados usando as curvas públicas de probabilidade de vitória e precisão por lance do [Lichess](https://lichess.org/page/accuracy). A comparação usa a melhor continuação versus a jogada realizada. A agregação é local e não reproduz nem CAPS2 nem a agregação ponderada do Lichess. Análises incompletas são identificadas como parciais; sem lances avaliados, aparece `—`.
-
-## Verificação
-
-Com pytest instalado: `.venv\Scripts\python.exe -m pytest tests -q`. Os testes cobrem jogadas especiais, variantes, exportação parcial, leitura PDF/PGN, contexto da IA, erros da API e fluxos de interface. Testes de Stockfish são ignorados quando o executável não está disponível.
-
-Referências: [API pública do Chess.com](https://www.chess.com/news/view/published-data-api), [API de chat do Ollama](https://docs.ollama.com/api/chat).
+Na pasta do aplicativo, execute `.venv\Scripts\python.exe -m pytest tests -q` (Linux/macOS: `.venv/bin/python -m pytest tests -q`). A suíte cobre regras de xadrez, importação, Stockfish e fontes bibliográficas, limites de classificação, navegação sem novas avaliações, busca por faixa e reinício de táticos. Os testes opcionais de navegador usam Playwright e Edge/Chromium já instalado; não iniciam o servidor Streamlit nem baixam navegadores.

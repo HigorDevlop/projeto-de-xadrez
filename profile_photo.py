@@ -5,7 +5,7 @@ import warnings
 from PIL import Image, ImageOps, UnidentifiedImageError
 
 
-def normalize_photo(data: bytes) -> bytes:
+def normalize_photo(data: bytes, *, square=False) -> bytes:
     if not data or len(data) > 10 * 1024 * 1024:
         raise ValueError("Escolha uma imagem de até 10 MB.")
     try:
@@ -16,7 +16,10 @@ def normalize_photo(data: bytes) -> bytes:
                     raise ValueError("Escolha uma imagem com até 20 milhões de pixels.")
                 original.load()
                 photo = ImageOps.exif_transpose(original).convert("RGBA")
-                photo.thumbnail((512, 512))
+                if square:
+                    photo = ImageOps.fit(photo, (320, 320), method=Image.Resampling.LANCZOS)
+                else:
+                    photo.thumbnail((512, 512))
                 output = BytesIO()
                 photo.save(output, format="PNG")
                 return output.getvalue()

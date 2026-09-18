@@ -6,6 +6,7 @@ from hashlib import sha256
 from html import escape
 from io import StringIO
 from pathlib import Path
+from threading import Event
 import base64
 import json
 import os
@@ -14,19 +15,21 @@ import chess
 import chess.pgn
 import streamlit as st
 
-from chess_review import (BookIndex, CATEGORIES, Thresholds, analyse_game, decode_text,
-                          export_review, find_engine, read_games, player_accuracy)
-from chesscom import fetch_recent_games, normalize_username
+from chess_review import (BookIndex, CATEGORIES, decode_text,
+                          export_review, read_games, player_accuracy)
+from chesscom import fetch_recent_games, normalize_username, fetch_rating
 from game_play import play_move
 from interactive_board import interactive_board
-from profile_photo import normalize_photo
-from tactics import THEMES, fetch_puzzle, solve_move
-from local_ai import default_model
-from tutor import (analyse_position, explain_with_ai, load_passages, move_lesson,
-                   ollama_models, retrieve, tutor_mood)
+from profile_avatar import profile_avatar
+from stockfish_analysis import find_engine, analyse_with_books
+from book_study import BookStudy
+from tactic_art import theme_art
+from tactics import THEMES, fetch_puzzle_range, solve_move
+from tutor import load_passages, tutor_mood
 
 ROOT = Path(__file__).resolve().parent
 USER_PREFERENCE = Path(os.environ.get("ACERVO_USER_PREFERENCE", ROOT / ".streamlit/last_chesscom_user.json"))
+APPEARANCE_PREFERENCE = Path(os.environ.get("ACERVO_APPEARANCE_PREFERENCE", ROOT / ".streamlit/appearance.json"))
 st.set_page_config(page_title="Acervo • análise de xadrez", page_icon="♞", layout="wide", initial_sidebar_state="collapsed")
 
 
@@ -44,6 +47,36 @@ def save_user(username):
     USER_PREFERENCE.write_text(json.dumps({"username": username}), encoding="utf-8")
 
 
+def load_saved_theme():
+    try:
+        theme = json.loads(APPEARANCE_PREFERENCE.read_text(encoding="utf-8")).get("theme")
+        return theme if theme in {"Claro", "Escuro"} else "Claro"
+    except (OSError, TypeError, ValueError, AttributeError):
+        return "Claro"
+
+
+def save_theme(theme):
+    APPEARANCE_PREFERENCE.parent.mkdir(parents=True, exist_ok=True)
+    APPEARANCE_PREFERENCE.write_text(json.dumps({"theme": theme}), encoding="utf-8")
+
+
+def choose_theme(theme):
+    state = st.session_state
+    state.theme_mode = theme
+    try:
+        save_theme(theme)
+    except OSError:
+        state.theme_save_error = "Tema aplicado nesta sessão; não foi possível salvá-lo neste computador."
+
+
+def theme_selector_changed():
+    choice = st.session_state.theme_selector
+    if choice in {"☾ Escuro", "Escuro"}:
+        choose_theme("Escuro")
+    elif choice in {"☀ Claro", "Claro"}:
+        choose_theme("Claro")
+
+
 @st.cache_data(max_entries=1, show_spinner=False)
 def load_openings():
     index = BookIndex()
@@ -51,7 +84,7 @@ def load_openings():
     return index
 
 
-@st.cache_data(max_entries=8, show_spinner=False)
+@st.cache_data(max_entries=2, show_spinner=False)
 def load_library(files, max_plies):
     index, errors = load_openings(), []
     for name, data in files:
@@ -63,12 +96,40 @@ def load_library(files, max_plies):
         except (ValueError, UnicodeError) as error:
             errors.append(f"{name}: {error}")
     passages, text_errors = load_passages(files)
-    return index, passages, errors + text_errors
+    return index, BookStudy(passages), errors + text_errors
 
 
 @st.cache_data(max_entries=2, show_spinner=False)
 def portrait_data(path, modified):
     return base64.b64encode(Path(path).read_bytes()).decode()
+
+
+def background_data(image):
+    if not image:
+        return ""
+    mime, data = image
+    return f"data:{mime};base64,{base64.b64encode(data).decode()}"
+
+
+def background_mode_changed(widget_key):
+    st.session_state.background_mode = st.session_state[widget_key]
+
+
+def background_css(mode, image, dark_theme=False):
+    image_url = background_data(image)
+    if mode == "Imagem personalizada" and image_url:
+        overlay = "#1119232e" if dark_theme else "#0000001f"
+        return f"background-image:linear-gradient({overlay},{overlay}),url('{image_url}');background-size:cover;background-position:center;"
+    dark = mode == "Escuro"
+    fill = "#18212b" if dark else "#efe9dc"
+    pieces = "#f1d7a3" if dark else "#5b5145"
+    pattern = base64.b64encode(f'''<svg xmlns="http://www.w3.org/2000/svg" width="260" height="220" viewBox="0 0 260 220">
+<rect width="260" height="220" fill="{fill}"/>
+<g fill="{pieces}" opacity=".2" font-family="serif" font-size="62" text-anchor="middle">
+<text x="45" y="72">♞</text><text x="175" y="72">♜</text>
+<text x="110" y="175">♛</text><text x="240" y="175">♟</text>
+</g></svg>'''.encode()).decode()
+    return f"background-image:url('data:image/svg+xml;base64,{pattern}');background-size:260px 220px;"
 
 
 def show_portrait(category):
@@ -89,11 +150,6 @@ def workers():
     return ThreadPoolExecutor(max_workers=2, thread_name_prefix="chess-review")
 
 
-@st.cache_resource
-def language_workers():
-    return ThreadPoolExecutor(max_workers=2, thread_name_prefix="chess-tutor")
-
-
 cached_history = st.cache_data(ttl=900, max_entries=32, show_spinner=False)(fetch_recent_games)
 
 
@@ -102,36 +158,27 @@ def current_game(pgn):
     return chess.pgn.read_game(StringIO(pgn)) or chess.pgn.Game()
 
 
-def position_job(pgn, ply, engine, book, depth, seconds):
-    game = current_game(pgn)
-    board = game.board()
-    for move in list(game.mainline_moves())[:ply]:
-        board.push(move)
-    review = None
-    if board.move_stack:
-        before = board.copy()
-        last = before.pop()
-        single = chess.pgn.Game()
-        single.setup(before)
-        single.add_main_variation(last)
-        review = analyse_game(single, engine, book, depth, seconds, Thresholds())[0]
-        review.ply = ply
-    snapshot = analyse_position(board.fen(), engine, depth, seconds)
-    return review, snapshot
+def cancel_analysis():
+    state = st.session_state
+    if state.analysis_cancel:
+        state.analysis_cancel.set()
+    if record := state.jobs.pop("full", None):
+        record[1].cancel()
 
 
 def reset_game(game, accuracies=None):
     state = st.session_state
-    for _, future in state.jobs.values():
-        future.cancel()
-    state.jobs, state.job_errors = {}, {}
+    cancel_analysis()
+    state.job_errors = {}
+    state.analysis_generation += 1
+    state.board_revision += 1
+    state.explanations = {}
+    state.book_references = {}
+    state.loaded_analysis = None
     state.game, state.ply, state.reviews = str(game), 0, {}
-    state.position_results, state.tutor_answers = {}, {}
-    state.explanation_nonce = 0
     state.official_accuracies = {side: float(value) for side, value in (accuracies or {}).items()
                                if side in {"white", "black"} and isinstance(value, (int, float))
                                and not isinstance(value, bool) and 0 <= value <= 100}
-    state.full_analysis_requested = False
 
 
 def go_tab(name):
@@ -151,7 +198,7 @@ def tab_changed():
 def go_back():
     state = st.session_state
     if state.tab_history:
-        state.requested_page = state.tab_history.pop()
+        state.requested_page = state.tab_history[-1]
         state.going_back = True
 
 
@@ -160,11 +207,18 @@ def board_changed():
     if not isinstance(event, dict):
         return
     state = st.session_state
+    if event.get("revision") != state.board_revision:
+        return
+    state.board_revision += 1
     try:
         pgn, ply = play_move(state.game, state.ply, event["uci"], event["fen"])
         if pgn != state.game:
-            state.reviews = {p: r for p, r in state.reviews.items() if p <= state.ply}
+            cancel_analysis()
             state.official_accuracies = {}
+            state.explanations, state.reviews = {}, {}
+            state.book_references = {}
+            state.loaded_analysis = None
+            state.analysis_generation += 1
         state.game, state.ply = pgn, ply
     except (KeyError, ValueError) as error:
         state.move_error = str(error)
@@ -207,22 +261,26 @@ def render_review():
         official = state.official_accuracies.get(api_side)
         accuracy = official if official is not None else player_accuracy(reviews, label)
         col.metric(f"Precisão · {label}", f"{accuracy:.1f}%" if accuracy is not None else "—",
-                   help="Chess.com" if official is not None else "Estimativa local dos lances já avaliados.")
+                   help="Chess.com" if official is not None else "Estimativa baseada na perda de pontos esperados.")
     if len(reviews) < len(list(current_game(state.game).mainline_moves())):
-        st.caption(f"{len(reviews)} lances avaliados · precisão local parcial quando não há precisão do Chess.com.")
+        st.caption(f"{len(reviews)} lances avaliados · precisão estimada quando não há precisão do Chess.com.")
 
 
-def queue_job(slot, key, function, *args, language=False):
+def queue_job(slot, key, function, *args):
     record = st.session_state.jobs.get(slot)
     if record and record[0] == key:
         return
     if record:
         record[1].cancel()
-    pool = language_workers() if language else workers()
-    st.session_state.jobs[slot] = (key, pool.submit(function, *args))
+    if slot == "full":
+        if st.session_state.analysis_cancel:
+            st.session_state.analysis_cancel.set()
+        st.session_state.analysis_cancel = Event()
+        args = (*args, st.session_state.analysis_cancel)
+    st.session_state.jobs[slot] = (key, workers().submit(function, *args))
 
 
-@st.fragment(run_every=0.4)
+@st.fragment(run_every=0.5)
 def poll_jobs():
     state = st.session_state
     changed = False
@@ -233,36 +291,69 @@ def poll_jobs():
         changed = True
         try:
             result = future.result()
+            if slot == "full" and key == analysis_key():
+                state.reviews = result["reviews"]
+                state.explanations = result["explanations"]
+                state.book_references = result["references"]
+                state.loaded_analysis = key
+            elif slot == "puzzle" and key == state.puzzle_request:
+                state.puzzle = result
+                reset_puzzle()
+            elif slot == "rating" and key == state.archive_user:
+                state.player_rating, state.rating_label = result
+                state.rating_user = key
             state.job_errors.pop((slot, key), None)
-            if slot == "position":
-                state.position_results[key] = result
-                if key[:2] == (state.game, state.analysis_signature) and result[0]:
-                    state.reviews.setdefault(result[0].ply, result[0])
-            elif slot == "full" and key == (state.game, state.analysis_signature):
-                state.reviews = {r.ply: r for r in result}
-            elif slot == "tutor":
-                state.tutor_answers[key] = result
-                past_game = current_game(key[0][0])
-                past_board = past_game.board()
-                for move in list(past_game.mainline_moves())[:key[0][2]]:
-                    past_board.push(move)
-                state.ai_by_fen[past_board.fen()] = result
-            for cache in (state.position_results, state.tutor_answers, state.ai_by_fen):
-                while len(cache) > 128:
-                    cache.pop(next(iter(cache)))
         except Exception as error:
             state.job_errors[(slot, key)] = str(error)
-            while len(state.job_errors) > 128:
+            if slot == "rating" and key == state.archive_user:
+                state.rating_user = key
+            while len(state.job_errors) > 32:
                 state.job_errors.pop(next(iter(state.job_errors)))
     if changed:
         st.rerun()
 
 
-def render_board(book, passages, library_id, engine_path, quality):
+def analysis_key():
     state = st.session_state
+    return state.game, state.analysis_signature, state.analysis_generation
+
+
+def ensure_analysis():
+    state = st.session_state
+    if not engine_path or (state.archive_user and state.rating_user != state.archive_user):
+        return
+    key = analysis_key()
+    if state.loaded_analysis == key or ("full", key) in state.job_errors:
+        return
+    queue_job("full", key, analyse_with_books, current_game(state.game), engine_path,
+              state.player_rating or 1500, book, study, state.quality)
+
+
+def jump_to_ply(ply):
+    st.session_state.ply = ply
+    st.session_state.board_revision += 1
+
+
+def render_moves(prefix):
+    state = st.session_state
+    board = current_game(state.game).board()
+    st.button("Posição inicial", key=f"{prefix}_start", on_click=jump_to_ply, args=(0,))
+    with st.container(height=320):
+        for ply, move in enumerate(current_game(state.game).mainline_moves(), 1):
+            review = state.reviews.get(ply)
+            symbol = CATEGORIES[review.category].symbol if review else ""
+            label = f"{board.fullmove_number}{'.' if board.turn else '...'} {board.san(move)} {symbol}"
+            st.button(label, key=f"{prefix}_{ply}", type="primary" if state.ply == ply else "secondary",
+                      on_click=jump_to_ply, args=(ply,), width="stretch")
+            board.push(move)
+
+
+def render_board():
+    state = st.session_state
+    ensure_analysis()
     game = current_game(state.game)
     moves = list(game.mainline_moves())
-    state.ply = min(state.ply, len(moves))
+    state.ply = max(0, min(state.ply, len(moves)))
     board = game.board()
     for move in moves[:state.ply]:
         board.push(move)
@@ -270,103 +361,127 @@ def render_board(book, passages, library_id, engine_path, quality):
     before = board.copy()
     if last:
         before.pop()
-    position_key = (state.game, state.analysis_signature, state.ply)
-    depth, seconds = {"Rápida": (12, .1), "Equilibrada": (18, .4), "Profunda": (24, 1.5)}[quality]
-    engine_ready = bool(engine_path and Path(engine_path).is_file())
-    result = state.position_results.get(position_key)
-    if engine_ready and state.auto_classify and result is None and ("position", position_key) not in state.job_errors:
-        queue_job("position", position_key, position_job, state.game, state.ply, engine_path, book, depth, seconds)
     review = state.reviews.get(state.ply)
-    snapshot = result[1] if result else None
     category = review.category if review else "book" if last and book.sources(before, last) else None
     left, right = st.columns([1.15, 1], gap="large")
     with left:
-        with st.popover("", icon=":material/settings:", help="Configurar tabuleiro e engine"):
-            st.toggle("Mostrar qualidade do lance", key="show_quality")
-            st.toggle("Pretas na parte inferior", key="flip")
-            st.text_input("Executável da engine", key="engine_path")
-            st.selectbox("Qualidade", ["Rápida", "Equilibrada", "Profunda"], key="quality")
-            st.toggle("Classificar ao mover peças", key="auto_classify")
-            if not engine_ready:
-                st.info("Configure a engine para obter as classificações e continuações calculadas.")
+        with st.container(horizontal=True):
+            with st.popover("", icon=":material/settings:", help="Configurar tabuleiro"):
+                st.toggle("Mostrar qualidade do lance", key="show_quality")
+                st.toggle("Pretas na parte inferior", key="flip")
+                st.selectbox("Qualidade", ["Rápida", "Equilibrada", "Profunda"], key="quality")
+                st.caption("Stockfish · 1 thread · 64 MB de hash" if engine_path else "Stockfish não encontrado.")
+            with st.popover("", icon=":material/description:", help="Anotações e lances PGN"):
+                render_moves("panel")
         interactive_board(board, flip=state.flip, last_move=last,
                           category=CATEGORIES[category] if category and state.show_quality else None,
-                          on_move=board_changed, ply=state.ply, total=len(moves), on_navigate=keyboard_navigate)
+                          on_move=board_changed, ply=state.ply, total=len(moves), on_navigate=keyboard_navigate,
+                          revision=state.board_revision)
         if error := state.pop("move_error", None):
             st.error(error)
         render_review()
     with right:
-        question = state.get("explanation_question", "")
-        model = state.get("tutor_model", "").strip()
-        answer_key = (position_key, category, bool(snapshot), library_id, question, model, state.explanation_nonce, 'strategy-v2')
-        answer = move_lesson(board, review, snapshot, category, question, state.explanation_nonce)
-        matched = retrieve(passages, board, question, before.fen())
-        if model and (snapshot is not None or not engine_ready or not state.auto_classify):
-            if answer_key not in state.tutor_answers and ("tutor", answer_key) not in state.job_errors:
-                queue_job("tutor", answer_key, explain_with_ai, model, board.copy(), review, snapshot,
-                          matched, question, state.explanation_nonce,
-                          state.ai_by_fen.get(board.fen() if state.explanation_nonce else before.fen(), ''), language=True)
-            answer = state.tutor_answers.get(answer_key, answer)
-        if last:
-            symbol = CATEGORIES[category].symbol if category else "◌"
-            answer = f"{symbol} {before.san(last)} — {answer}"
-        state.last_explanation, state.last_explanation_key = answer, answer_key
+        answer = state.explanations.get(state.ply)
+        if answer and last:
+            answer = f"{CATEGORIES[category].symbol if category else '◌'} {before.san(last)} — {answer}"
+        state.last_explanation = answer or ""
         with st.container(border=True, key="bobby_explanation"):
             heading, portrait = st.columns([3, 1])
             heading.markdown("### Bobby Fischer")
             with portrait:
                 show_portrait(tutor_mood(category)[0])
-            st.html(f'<div class="book-page lesson-text">{escape(answer)}</div>')
-            if model and answer_key not in state.tutor_answers and ('tutor', answer_key) not in state.job_errors:
-                st.caption("A IA local está desenvolvendo a explicação estratégica desta posição…")
-            elif model and answer_key in state.tutor_answers:
-                st.caption(f"Explicação gerada localmente · {model}")
-            st.text_input("Pergunta sobre esta posição", key="explanation_question",
-                          placeholder="Qual é o plano e a ameaça do adversário?", max_chars=1000)
-            if question and not model:
-                st.caption("A explicação acima usa os fatos do tabuleiro. Para conversar sobre uma pergunta, selecione uma IA local nas configurações do tutor.")
-            if matched:
-                with st.expander("Trechos dos livros nesta posição"):
-                    for passage in matched:
-                        st.caption(passage.source)
-                        st.write(passage.text)
-            if st.button("Reexplicar lance", icon=":material/refresh:"):
-                state.explanation_nonce += 1
-                st.rerun()
-            for slot, key in [("position", position_key), ("tutor", answer_key)]:
-                if error := state.job_errors.get((slot, key)):
-                    st.caption(f"{error} A explicação do tabuleiro continua disponível.")
+            if answer:
+                st.html(f'<div class="book-page lesson-text">{escape(answer)}</div>')
+                st.caption("Stockfish + livros carregados · explicação pré-carregada")
+                refs = state.book_references.get(state.ply, [])
+                if refs:
+                    with st.expander("Trechos dos livros usados nesta posição", expanded=True):
+                        for i, ref in enumerate(refs, 1):
+                            st.caption(f"[{i}] {ref.source} · {ref.match}")
+                            st.text(ref.quote)
+                if review and review.played_expected is not None:
+                    st.caption(f"Pontos esperados: {review.played_expected:.0%} · perda: {review.expected_loss:.1%}")
+            elif "full" in state.jobs:
+                st.info("Preparando a análise e todas as explicações da partida…")
+            elif not engine_path:
+                st.info("Stockfish não encontrado. Instale em engines/ ou configure STOCKFISH_PATH.")
+            if error := state.job_errors.get(("full", analysis_key())):
+                st.error(error)
+                if st.button("Tentar análise novamente"):
+                    state.analysis_generation += 1
+                    st.rerun()
+
+
+def reset_puzzle():
+    state = st.session_state
+    state.puzzle_progress, state.puzzle_message = 0, ""
+    state.puzzle_revision += 1
 
 
 def puzzle_changed():
     state = st.session_state
     event = state.puzzle_board.move
-    if not isinstance(event, dict) or not state.puzzle:
+    if not isinstance(event, dict) or not state.puzzle or event.get("revision") != state.puzzle_revision:
         return
     try:
         state.puzzle_progress, state.puzzle_message = solve_move(state.puzzle, state.puzzle_progress,
                                                                event["uci"], event["fen"])
     except (KeyError, ValueError) as error:
         state.puzzle_message = str(error)
+    finally:
+        state.puzzle_revision += 1
+
+
+def choose_theme(theme):
+    state = st.session_state
+    state.tactic_theme = theme
+    state.puzzle = None
+    state.puzzle_request = None
+    state.puzzle_nonce += 1
+    reset_puzzle()
+    for key in ("rating_min", "rating_max"):
+        state.pop(key, None)
+    if record := state.jobs.pop("puzzle", None):
+        record[1].cancel()
 
 
 def render_tactics():
     state = st.session_state
-    random = st.button("Random · tático aleatório", icon=":material/shuffle:", type="primary")
-    theme = st.selectbox("Tema do tático", list(THEMES))
-    difficulties = dict(zip(["Muito fácil", "Fácil", "Normal", "Difícil", "Muito difícil"],
-                            ["easiest", "easier", "normal", "harder", "hardest"]))
-    difficulty = st.select_slider("Dificuldade", list(difficulties), value="Normal")
-    load = st.button("Carregar tático", icon=":material/refresh:")
-    if random or load:
-        try:
-            with st.spinner("Buscando tático no Lichess…"):
-                state.puzzle = fetch_puzzle("mix" if random else THEMES[theme], difficulties[difficulty])
-            state.puzzle_progress, state.puzzle_message = 0, ""
-        except ValueError as error:
-            st.error(str(error))
+    if state.tactic_theme is None:
+        st.subheader("Escolha um tema tático")
+        columns = st.columns(3)
+        for index, (label, theme) in enumerate(THEMES.items()):
+            with columns[index % 3], st.container(border=True):
+                st.html(theme_art(theme))
+                st.button(label, key=f"theme_{theme}", width="stretch", on_click=choose_theme, args=(theme,))
+        return
+    st.button("Escolher outro tema", icon=":material/arrow_back:", on_click=choose_theme, args=(None,))
+    st.subheader(next(label for label, value in THEMES.items() if value == state.tactic_theme))
+    start, end = st.columns(2)
+    minimum = start.selectbox("Rating inicial", range(0, 4001, 100), index=None, key="rating_min", persist_state="session")
+    maximum = end.selectbox("Rating final", range(0, 4001, 100), index=None, key="rating_max", persist_state="session")
+    if minimum is None or maximum is None:
+        st.info("Selecione o rating inicial e final para carregar automaticamente.")
+        return
+    if minimum > maximum:
+        state.puzzle_request = None
+        st.error("O rating inicial deve ser menor ou igual ao final.")
+        return
+    st.caption(f"Faixa: {minimum}–{maximum} · média: {(minimum + maximum) / 2:.0f}")
+    request_key = state.tactic_theme, minimum, maximum, state.puzzle_nonce
+    if request_key != state.puzzle_request:
+        exclude = state.puzzle.id if state.puzzle else None
+        state.puzzle_request, state.puzzle = request_key, None
+        reset_puzzle()
+        queue_job("puzzle", request_key, fetch_puzzle_range, state.tactic_theme, minimum, maximum, exclude)
+    if "puzzle" in state.jobs:
+        st.info("Buscando um tático na faixa selecionada…")
+    if error := state.job_errors.get(("puzzle", request_key)):
+        st.error(error)
+        if st.button("Tentar busca novamente"):
+            state.puzzle_nonce += 1
+            st.rerun()
     if not state.puzzle:
-        st.info("Escolha um tema ou Random para começar.")
         return
     puzzle = state.puzzle
     board = chess.Board(puzzle.fen)
@@ -377,16 +492,18 @@ def render_tactics():
     left, right = st.columns([1.15, 1])
     with left:
         interactive_board(board, flip=not player, on_move=puzzle_changed, key="puzzle_board", disabled=done,
+                          revision=state.puzzle_revision,
                           last_move=board.peek() if board.move_stack else chess.Move.from_uci(puzzle.last_move) if puzzle.last_move else None)
     with right:
         st.subheader("Tático resolvido!" if done else f"Jogam as {'brancas' if player else 'pretas'}")
-        st.caption(f"Dificuldade Lichess: {puzzle.rating}")
+        st.caption(f"Rating Lichess: {puzzle.rating}")
         if state.puzzle_message:
             st.write(state.puzzle_message)
         if not done and st.button("Dica"):
             st.info(f"Observe a peça em {puzzle.solution[state.puzzle_progress][:2]}.")
-        if st.button("Recomeçar tático"):
-            state.puzzle_progress, state.puzzle_message = 0, ""
+        st.button("Recomeçar tático", on_click=reset_puzzle)
+        if st.button("Próximo tático"):
+            state.puzzle_nonce += 1
             st.rerun()
         st.link_button("Ver tático no Lichess", f"https://lichess.org/training/{puzzle.id}")
         st.caption("Fonte: banco público de táticos Lichess · CC0.")
@@ -394,64 +511,87 @@ def render_tactics():
 
 defaults = {"game": (ROOT / "examples/partida.pgn").read_text(encoding="utf-8"), "ply": 0,
             "reviews": {}, "archive_user": load_saved_user(), "history_loaded_user": None,
-            "history_games": [], "official_accuracies": {}, "full_analysis_requested": False,
-            "show_quality": True, "flip": False, "quality": "Equilibrada", "auto_classify": True,
-            "engine_path": find_engine(), "analysis_signature": None, "position_results": {},
-            "tutor_answers": {}, "jobs": {}, "job_errors": {}, "explanation_nonce": 0,
+            "history_games": [], "official_accuracies": {},
+            "show_quality": True, "flip": False, "quality": "Equilibrada",
+            "analysis_generation": 0, "board_revision": 0, "explanations": {}, "loaded_analysis": None, "analysis_signature": None,
+            "analysis_cancel": None, "book_references": {}, "study_files": (), "study_upload_revision": 0,
+            "jobs": {}, "job_errors": {},
             "last_explanation": "", "active_tab": "Partida", "tab_history": [], "main_view": "Partida",
             "analysis_workspace_open": False, "puzzle": None, "puzzle_progress": 0,
-            "puzzle_message": "", "profile_bytes": None, "photo_digest": None,
-            "ai_by_fen": {}, "tutor_model": default_model()}
+            "puzzle_message": "", "profile_bytes": None,
+            "puzzle_revision": 0, "puzzle_request": None, "puzzle_nonce": 0, "tactic_theme": None,
+            "player_rating": None, "rating_label": "", "rating_user": None,
+            "background_image": None, "background_mode": "Claro", "theme_mode": load_saved_theme(),
+            "background_upload_revision": 0, "appearance_revision": 0}
 for key, value in defaults.items():
     st.session_state.setdefault(key, value)
 state = st.session_state
 if state.archive_user == 'demo_import_test' and not os.environ.get('ACERVO_USER_PREFERENCE'):
     state.archive_user, state.history_games, state.history_loaded_user = '', [], None
     state.pop('history_error', None)
-# Pick up the completed local installation even in an already open session.
-installed_model = default_model()
-if installed_model and state.get('installed_model_seen') != installed_model:
-    state.tutor_model = installed_model
-    state.installed_model_seen = installed_model
 # Preserve settings while their widgets are hidden on another tab.
-for key in ("engine_path", "quality", "auto_classify", "flip", "show_quality", "review_side", "explanation_question"):
+for key in ("quality", "flip", "show_quality", "review_side"):
     if key in state:
         state[key] = state[key]
 if isinstance(state.reviews, list):
     state.reviews = {r.ply: r for r in state.reviews}
 
-st.html('''<style>
-.book-page {background:linear-gradient(90deg,#e5d4ae 0,#faf2df 15px,#fff9ed 48%,#f6ecd6 100%);
-color:#342a20;border:1px solid #d9c7a5;border-left:5px solid #c6aa78;border-radius:3px;
-box-shadow:3px 3px 0 #e9dcc1,5px 5px 0 #cebb97,0 8px 20px #20170d15}
-.lesson-text {padding:24px 28px;font:17px/1.8 Georgia,serif;overflow-wrap:anywhere}
-.review-page {padding:10px 22px;max-width:380px;margin:3px 0 16px}
-.review-row {display:grid;grid-template-columns:32px 1fr 1fr;gap:16px;align-items:center;padding:3px 0;font:600 15px Georgia,serif;
-border-bottom:1px solid #baa48033}.review-row:last-child {border-bottom:0}
-.review-row>span:not(:first-child) {text-align:center}.review-heading {font-size:13px;padding-bottom:8px}
-.review-symbol {display:inline-flex;justify-content:center;align-items:center;width:26px;height:26px;
-border-radius:50%;font:bold 13px sans-serif}
-</style>''')
-st.title(state.archive_user or "Acervo de xadrez")
+theme_choice = st.segmented_control("Tema", ["☀ Claro", "☾ Escuro"],
+                                    default="☾ Escuro" if state.theme_mode == "Escuro" else "☀ Claro",
+                                    key="theme_selector", label_visibility="collapsed",
+                                    on_change=theme_selector_changed)
 
-with st.sidebar:
-    with st.expander("Foto do perfil"):
-        photo = st.file_uploader("Selecionar foto", type=["png", "jpg", "jpeg", "webp"], key="profile_photo", max_upload_size=10)
-    if photo:
-        digest = sha256(photo.getvalue()).hexdigest()
-        if digest != state.photo_digest:
-            try:
-                state.profile_bytes = normalize_photo(photo.getvalue())
-                state.photo_digest = digest
-                state.pop("photo_error", None)
-            except ValueError as error:
-                state.photo_error = str(error)
-                state.photo_digest = digest
+dark_theme = state.theme_mode == "Escuro"
+theme_styles = '''
+.stApp, .stApp label, .stApp .stMarkdown, .stApp .stCaption, .stApp [data-testid="stMetricLabel"],
+.stApp [data-testid="stSidebar"] nav *, .stApp [data-testid="stSidebar"] p,
+.stApp [data-testid="stSidebar"] [data-testid="stExpander"] summary { color:#f4f1e8 !important; }
+.stApp input, .stApp textarea, .stApp [data-baseweb="select"] > div { color:#f4f1e8; background-color:#202b38; }
+.stApp [data-baseweb="select"] * { color:#f4f1e8 !important; }
+''' if dark_theme else '''
+.stApp, .stApp label, .stApp .stMarkdown, .stApp .stCaption, .stApp [data-testid="stMetricLabel"],
+.stApp [data-testid="stSidebar"] nav *, .stApp [data-testid="stSidebar"] p,
+.stApp [data-testid="stSidebar"] [data-testid="stExpander"] summary { color:#000000 !important; }
+.stApp input, .stApp textarea, .stApp [data-baseweb="select"] > div { color:#000000; background-color:#ffffff; }
+.stApp [data-baseweb="select"] * { color:#000000 !important; }
+.stApp [data-testid="stSidebar"] button[kind="primary"] { color:#ffffff !important; }
+'''
+st.markdown(f'''<style>
+body, .stApp {{ {background_css(state.background_mode, state.background_image, dark_theme)} background-attachment:fixed; }}
+.stApp > header {{ background:transparent; }}
+.main .block-container {{ position:relative; z-index:1; }}
+.stSidebar {{ background:{"#111923ee" if dark_theme else "#f7f4edf2"}; }}
+{theme_styles}
+.book-page {{background:linear-gradient(90deg,#e5d4ae 0,#faf2df 15px,#fff9ed 48%,#f6ecd6 100%);
+color:#342a20;border:1px solid #d9c7a5;border-left:5px solid #c6aa78;border-radius:3px;
+box-shadow:3px 3px 0 #e9dcc1,5px 5px 0 #cebb97,0 8px 20px #20170d15}}
+.lesson-text {{padding:24px 28px;font:17px/1.8 Georgia,serif;overflow-wrap:anywhere}}
+.review-page {{padding:10px 22px;max-width:380px;margin:3px 0 16px}}
+.review-row {{display:grid;grid-template-columns:32px 1fr 1fr;gap:16px;align-items:center;padding:3px 0;font:600 15px Georgia,serif;
+border-bottom:1px solid #baa48033}}.review-row:last-child {{border-bottom:0}}
+.review-row>span:not(:first-child) {{text-align:center}}.review-heading {{font-size:13px;padding-bottom:8px}}
+.review-symbol {{display:inline-flex;justify-content:center;align-items:center;width:26px;height:26px;
+border-radius:50%;font:bold 13px sans-serif}}
+</style>''', unsafe_allow_html=True)
+profile, title = st.columns([1, 5])
+with profile:
+    profile_avatar(state.profile_bytes)
+    st.markdown(f"**{state.archive_user or 'Jogador'}**")
+    st.caption(f"Rating: {state.player_rating} · {state.rating_label}" if state.player_rating else "Rating: —")
     if state.get("photo_error"):
         st.error(state.photo_error)
-    if state.profile_bytes:
-        encoded = base64.b64encode(state.profile_bytes).decode()
-        st.html(f'<img alt="Foto do perfil" src="data:image/png;base64,{encoded}" width="120" style="border-radius:12px">')
+    if state.archive_user and state.rating_user != state.archive_user:
+        st.caption("Atualizando rating…")
+    if state.archive_user and ("rating", state.archive_user) in state.job_errors:
+        st.caption("Rating indisponível no momento.")
+        if st.button("Atualizar rating"):
+            state.rating_user = None
+with title:
+    pass
+    if state.get("theme_save_error"):
+        st.caption(state.pop("theme_save_error"))
+
+with st.sidebar:
     if not state.archive_user:
         with st.form("chesscom_user"):
             username = st.text_input("Usuário do Chess.com", placeholder="Nome do usuário", key="chesscom_login_username")
@@ -478,6 +618,8 @@ with st.sidebar:
             except OSError:
                 pass
             state.archive_user, state.history_loaded_user, state.history_games = "", None, []
+            state.player_rating, state.rating_user, state.rating_label = None, None, ""
+            state.profile_bytes = None
             state.pop('history_error', None)
             state.pop('chesscom_login_username', None)
             state.history_choice = None
@@ -508,40 +650,58 @@ with st.sidebar:
         uploads = st.file_uploader("Adicionar livros", type=["pgn", "bin", "pdf", "txt", "md"], accept_multiple_files=True,
                                    key="books", max_upload_size=200)
         book_plies = st.slider("Profundidade do livro", 4, 80, 40, step=2)
-    with st.expander("Tutor"):
-        st.text_input("Modelo local do Ollama", key="tutor_model", placeholder="Nome do modelo instalado")
-        if st.button("Detectar modelos locais"):
-            try:
-                st.write(ollama_models())
-            except ValueError as error:
-                st.info(str(error))
+    with st.expander("Fundo da página"):
+        background_options = ["Claro", "Escuro", "Imagem personalizada"]
+        background_key = f"background_mode_widget_{state.appearance_revision}"
+        st.selectbox("Estilo do fundo", background_options,
+                     index=background_options.index(state.background_mode), key=background_key,
+                     on_change=background_mode_changed, args=(background_key,))
+        def background_changed():
+            upload = st.session_state.get(f"page_background_upload_{state.background_upload_revision}")
+            if upload:
+                state.background_image = (upload.type, upload.getvalue())
+                state.background_mode = "Imagem personalizada"
+                state[background_key] = "Imagem personalizada"
 
-files = tuple((item.name, item.getvalue()) for item in uploads)
-book, passages, book_errors = load_library(files, book_plies)
-library_id = sha256(repr(files).encode()).hexdigest()
-signature = (library_id, book_plies, state.engine_path, state.quality)
+        st.file_uploader("Escolha uma imagem", type=["png", "jpg", "jpeg", "webp"],
+                         key=f"page_background_upload_{state.background_upload_revision}",
+                         on_change=background_changed, max_upload_size=8)
+        st.caption("Escolha entre o padrão claro, escuro ou uma imagem personalizada.")
+        if state.background_image and st.button("Restaurar fundo com peças", icon=":material/refresh:"):
+            state.background_image = None
+            state.background_mode = "Claro"
+            state.appearance_revision += 1
+            state.background_upload_revision += 1
+            st.rerun()
+
+if state.archive_user and state.rating_user != state.archive_user:
+    queue_job("rating", state.archive_user, fetch_rating, state.archive_user)
+
+files = tuple((item.name, item.getvalue()) for item in uploads) + state.study_files
+book, study, book_errors = load_library(files, book_plies)
+library_digest = sha256()
+for name, data in files:
+    library_digest.update(name.encode())
+    library_digest.update(sha256(data).digest())
+library_id = library_digest.hexdigest()
+engine_path = find_engine()
+signature = (library_id, book_plies, engine_path, state.quality, state.player_rating or 1500)
 if state.analysis_signature != signature:
-    state.reviews, state.position_results, state.job_errors = {}, {}, {}
+    cancel_analysis()
+    state.reviews = {}
     state.analysis_signature = signature
+    state.explanations = {}
+    state.book_references = {}
+    state.loaded_analysis = None
 for error in book_errors:
     st.warning(error)
+with st.sidebar:
+    st.caption(f"Livros preparados: {len(files)} arquivos · {len(study.passages)} trechos indexados.")
+    if not files:
+        st.caption("Carregue livros para fundamentar as explicações com trechos e fontes.")
 game = current_game(state.game)
 
-if state.full_analysis_requested:
-    state.full_analysis_requested = False
-    if state.engine_path and Path(state.engine_path).is_file() and list(game.mainline_moves()):
-        depth, seconds = {"Rápida": (12, .1), "Equilibrada": (18, .4), "Profunda": (24, 1.5)}[state.quality]
-        queue_job("full", (state.game, signature), analyse_game, game, state.engine_path, book, depth, seconds, Thresholds())
-    elif not state.engine_path or not Path(state.engine_path).is_file():
-        st.warning("Configure uma engine válida para executar a avaliação.")
-if "full" in state.jobs:
-    st.caption("Avaliando a partida em segundo plano…")
-if error := state.job_errors.get(("full", (state.game, signature))):
-    st.error(f"Não foi possível concluir a análise: {error}")
-
 def render_workspace(name):
-    st.button("Voltar", icon=":material/arrow_back:", disabled=not state.tab_history,
-              on_click=go_back, key=f"back_{name}")
     if name in {"Partida", "Análise"}:
         if name == "Partida":
             with st.expander("Nova partida"):
@@ -561,7 +721,6 @@ def render_workspace(name):
                         imported = read_games(source)[0]
                         reset_game(imported)
                         state.ply = len(list(imported.mainline_moves()))
-                        state.full_analysis_requested = True
                         st.rerun()
                     except (ValueError, IndexError, UnicodeError) as error:
                         st.error(f"PGN inválido: {error}")
@@ -578,23 +737,30 @@ def render_workspace(name):
                     except ValueError as error:
                         st.error(f"FEN inválida: {error}")
             if st.button("Executar avaliação", icon=":material/play_arrow:"):
-                state.full_analysis_requested = True
+                state.analysis_generation += 1
+                state.explanations, state.reviews = {}, {}
                 st.rerun()
-        render_board(book, passages, library_id, state.engine_path, state.quality)
+        render_board()
     elif name == "Anotações":
-        current = game.board()
-        for i, move in enumerate(game.mainline_moves(), 1):
-            review = state.reviews.get(i)
-            symbol = CATEGORIES[review.category].symbol if review else "📖" if book.sources(current, move) else "◌"
-            st.write(f"{symbol} {current.fullmove_number}{'.' if current.turn else '...'} {current.san(move)}")
-            current.push(move)
-        render_review()
+        render_moves("notes")
+        render_board()
     elif name == "Estudo com livros":
         left, right = st.columns([1.15, 1])
         with left:
             interactive_board(chess.Board(), on_move=lambda: None, key="study_board", disabled=True)
         with right:
-            st.file_uploader("Carregar livro desejado", type=["pgn", "bin", "pdf", "txt", "md"], key="study_book_upload", max_upload_size=200)
+            def study_books_changed():
+                selected = st.session_state[f"study_book_upload_{st.session_state.study_upload_revision}"]
+                st.session_state.study_files = tuple((item.name, item.getvalue()) for item in selected)
+            st.file_uploader("Carregar livros para análise", type=["pgn", "bin", "pdf", "txt", "md"],
+                             accept_multiple_files=True, key=f"study_book_upload_{state.study_upload_revision}",
+                             on_change=study_books_changed, max_upload_size=200)
+            st.write(f"{len(study.passages)} trechos preparados para analisar suas partidas.")
+            st.caption("Os livros desta aba e da barra lateral são consultados antes da avaliação pelo Stockfish.")
+            if state.study_files and st.button("Remover livros desta aba"):
+                state.study_files = ()
+                state.study_upload_revision += 1
+                st.rerun()
     else:
         render_tactics()
 
@@ -616,10 +782,16 @@ requested = state.pop('requested_page', None)
 if requested in pages and requested != selected_page.title:
     st.switch_page(pages[requested])
 if selected_page.title != state.active_tab:
-    if not state.pop('going_back', False):
+    going_back = state.pop('going_back', False)
+    if going_back:
+        if state.tab_history and state.tab_history[-1] == selected_page.title:
+            state.tab_history.pop()
+    else:
         state.tab_history.append(state.active_tab)
 state.active_tab = state.main_view = selected_page.title
 state.analysis_workspace_open = selected_page.title == 'Análise'
+if state.tab_history:
+    st.button("Voltar", icon=":material/arrow_back:", on_click=go_back, key="navigation_back")
 selected_page.run()
 
 with st.sidebar:

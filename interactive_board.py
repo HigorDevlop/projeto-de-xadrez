@@ -36,7 +36,7 @@ _BOARD = st.components.v2.component(
     js="""
     export default function({data,parentElement,setTriggerValue}) {
       // Engine/tutor updates must not replace squares during a drag.
-      const signature=JSON.stringify([data.fen,data.cells.map(c=>c.name),data.legal]);
+      const signature=JSON.stringify([data.fen,data.cells.map(c=>c.name),data.legal,data.revision]);
       const existing=parentElement._acervoState;
       if(existing?.signature===signature) {
         existing.update(data,setTriggerValue);
@@ -61,7 +61,7 @@ _BOARD = st.components.v2.component(
       function emit(uci) {
         if(pending)return;
         pending=true; promo.replaceChildren();
-        setTriggerValue('move',{uci,fen:data.fen});
+        setTriggerValue('move',{uci,fen:data.fen,revision:data.revision});
       }
       function attempt(from,to) {
         const candidates=data.legal.filter(m=>m.slice(0,2)===from && m.slice(2,4)===to);
@@ -174,7 +174,13 @@ _BOARD = st.components.v2.component(
       const detach=()=>document.removeEventListener('keydown',keyboard);
       const cleanup=()=>{disposed=true;detach();ghost?.remove();};
       parentElement._acervoState={signature,keyboard,detach,cleanup,update:(next,trigger)=>{
-        data=next;setTriggerValue=trigger;pending=false;paintBadge();
+        data=next;setTriggerValue=trigger;
+        if(pending){
+          ghost?.remove();ghost=null;promo.replaceChildren();select(null);
+          for(const button of buttons.values())button.classList.remove('dragging');
+        }
+        pending=false;
+        paintBadge();
       }};
       return detach;
     }
@@ -183,7 +189,7 @@ _BOARD = st.components.v2.component(
 
 
 def interactive_board(board, *, flip=False, last_move=None, category=None, on_move,
-                      ply=0, total=0, on_navigate=None, key="interactive_board", disabled=False):
+                      ply=0, total=0, on_navigate=None, key="interactive_board", disabled=False, revision=0):
     names = {chess.PAWN: "peão", chess.KNIGHT: "cavalo", chess.BISHOP: "bispo",
              chess.ROOK: "torre", chess.QUEEN: "dama", chess.KING: "rei"}
     cells = []
@@ -199,7 +205,7 @@ def interactive_board(board, *, flip=False, last_move=None, category=None, on_mo
     badge = ({"square": chess.square_name(last_move.to_square), "symbol": category.symbol,
               "label": category.label, "color": category.color, "ink": category.ink}
              if last_move and category else None)
-    return _BOARD(data={"fen": board.fen(), "cells": cells,
+    return _BOARD(data={"fen": board.fen(), "cells": cells, "revision": revision,
                         "legal": [] if disabled or board.is_game_over() else [m.uci() for m in board.legal_moves],
                         "last": [chess.square_name(s) for s in (last_move.from_square, last_move.to_square)] if last_move else [],
                         "badge": badge, "ply": ply, "total": total, "navigation": on_navigate is not None}, key=key,

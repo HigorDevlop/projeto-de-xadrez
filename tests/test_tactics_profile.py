@@ -7,7 +7,7 @@ from PIL import Image
 import pytest
 
 from profile_photo import normalize_photo
-from tactics import fetch_puzzle, parse_puzzle, solve_move
+from tactics import fetch_puzzle, fetch_puzzle_range, parse_puzzle, solve_move
 
 
 def payload():
@@ -69,3 +69,37 @@ def test_invalid_photo_returns_readable_error():
         normalize_photo(b'not an image')
     with pytest.raises(ValueError, match='10 MB'):
         normalize_photo(b'x' * (10 * 1024 * 1024 + 1))
+
+
+def test_cropped_photo_is_square():
+    data = BytesIO()
+    Image.new('RGB', (800, 400), 'red').save(data, format='JPEG')
+    result = Image.open(BytesIO(normalize_photo(data.getvalue(), square=True)))
+    assert result.size == (320, 320) and result.format == 'PNG'
+
+
+def test_range_search_is_bounded_and_never_returns_wrong_rating():
+    puzzle = parse_puzzle(payload())
+    with patch('tactics.fetch_puzzle', return_value=puzzle) as fetch:
+        assert fetch_puzzle_range('mateIn1', 700, 900) == puzzle
+        assert fetch.call_count == 1
+    with patch('tactics.fetch_puzzle', return_value=puzzle) as fetch:
+        with pytest.raises(ValueError, match='Nenhum tático'):
+            fetch_puzzle_range('mateIn1', 1000, 1200)
+        assert fetch.call_count == 3
+    with patch('tactics.fetch_puzzle') as fetch:
+        with pytest.raises(ValueError, match='faixa'):
+            fetch_puzzle_range('mateIn1', 900, 700)
+        fetch.assert_not_called()
+
+
+def test_profile_rating_uses_most_recent_public_mode():
+    from chesscom import fetch_rating
+    with patch('chesscom.get_json', return_value={
+        'chess_rapid': {'last': {'rating': 1400, 'date': 20}},
+        'chess_blitz': {'last': {'rating': 1550, 'date': 30}},
+        'chess_bullet': {'last': {'rating': 1700, 'date': 10}},
+    }):
+        assert fetch_rating('demo') == (1550, 'Blitz')
+    with patch('chesscom.get_json', return_value={}):
+        assert fetch_rating('demo') == (None, 'Sem rating publicado')

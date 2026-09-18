@@ -87,7 +87,7 @@ def main():
             expect(page.locator('.drag-ghost')).to_have_count(0)
             expect(origin).to_be_visible()
             print('ILLEGAL_DROP_RETURN_OK',flush=True)
-            expect(page.locator('.review-row')).to_have_count(10)
+            expect(page.locator('.review-row')).to_have_count(11)
             assert page.locator('.review-page').evaluate('(el)=>el.scrollHeight <= el.clientHeight + 2')
             page.get_by_role('tab', name='Análise', exact=True).click()
             expect(page.get_by_role('button', name='Executar avaliação')).to_be_visible()
