@@ -6,4 +6,3 @@ __pycache__/
 .streamlit/last_chesscom_user.json
 *.log
 .server.pid
-.streamlit/local_ai.json

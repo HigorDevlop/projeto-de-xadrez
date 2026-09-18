@@ -4,12 +4,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from io import StringIO
 from pathlib import Path
-import os
-import shutil
 import struct
 import csv
 import math
-from typing import Callable
 
 import chess
 import chess.engine
@@ -31,10 +28,10 @@ CATEGORIES = {
     "book": Category("Livro", "Book", "#9B7955", "#FFFFFF", "📖",
                      "Jogada catalogada no acervo carregado."),
     "brilliant": Category("Brilhante", "Brilliant", "#26BDB0", "#102A43", "!!",
-                          "Bom sacrifício que preserva uma posição favorável (estimativa local)."),
+                          "Sacrifício produtivo de peça, com tolerância ajustada ao rating."),
     "best": Category("Melhor", "Best", "#8B5CF6", "#FFFFFF", "★",
                      "Melhor lance sugerido pela engine."),
-    "great": Category("Ótimo", "Great", "#1E40AF", "#FFFFFF", "!",
+    "great": Category("Grande Lance", "Great", "#1E40AF", "#FFFFFF", "!",
                       "Única continuação boa identificada na busca (estimativa local)."),
     "excellent": Category("Excelente", "Excellent", "#80A765", "#102A43", "✓✓",
                           "Preserva quase todos os pontos esperados da posição."),
@@ -46,7 +43,7 @@ CATEGORIES = {
                         "Reduz de forma relevante as chances de um bom resultado."),
     "miss": Category("Oportunidade perdida", "Miss", "#D68C66", "#332A00", "×",
                      "Deixa escapar uma oportunidade após um erro adversário (estimativa local)."),
-    "blunder": Category("Erro grave", "Blunder", "#DC2626", "#FFFFFF", "??",
+    "blunder": Category("Capivorada", "Blunder", "#DC2626", "#FFFFFF", "??",
                         "Perda tática grave ou revés decisivo na avaliação."),
 }
 
@@ -66,41 +63,34 @@ class Thresholds:
 def classify(*, in_book: bool, is_best: bool, sacrifice: bool,
              best_expected: float, played_expected: float,
              second_expected: float | None = None, missed_opportunity: bool = False,
-             thresholds: Thresholds = Thresholds()) -> str:
-    """Public Chess.com loss bands, with local WDL estimates, not their private model.
+             thresholds: Thresholds = Thresholds(), rating: int = 1500) -> str:
+    """Expected-points bands; special categories are documented approximations.
 
-    At shared boundaries the worse category starts (e.g. 0.05 = inaccuracy).
-    Great, brilliant and miss are explicitly local heuristics.
+    5% starts inaccuracy, 10% starts mistake; blunder is strictly above 20%.
+    Rating adjusts only the tolerance for a verified productive piece sacrifice.
     """
+    for value in (best_expected, played_expected, second_expected):
+        if value is not None and (not math.isfinite(value) or not 0 <= value <= 1):
+            raise ValueError("Pontos esperados devem estar entre 0 e 1.")
     loss = round(max(0, best_expected - played_expected), 8)
-    if in_book:
-        return "book"
-    if (sacrifice and played_expected >= 0.5 and loss < thresholds.excellent
+    tolerance = max(0.005, min(0.02, 0.02 - (rating - 800) / 120000))
+    if (sacrifice and played_expected >= 0.5 and loss <= tolerance
             and second_expected is not None and second_expected < 0.95):
         return "brilliant"
-    if (is_best and second_expected is not None and best_expected >= 0.5
-            and second_expected < 0.5 and best_expected - second_expected >= 0.1):
+    if (loss == 0 and second_expected is not None and best_expected >= 0.5
+            and best_expected - second_expected >= 0.1):
         return "great"
-    if is_best:
+    if loss == 0:
         return "best"
-    if missed_opportunity:
-        return "miss"
     if loss < thresholds.excellent:
         return "excellent"
     if loss < thresholds.good:
         return "good"
     if loss < thresholds.inaccuracy:
         return "inaccuracy"
-    if loss < thresholds.mistake:
+    if loss <= thresholds.mistake:
         return "mistake"
     return "blunder"
-
-
-def expected_points(info, color, ply):
-    """Use the engine's W/D/L distribution; older engines use python-chess's model."""
-    if "wdl" in info:
-        return info["wdl"].pov(color).expectation()
-    return info["score"].pov(color).wdl(model="sf", ply=ply).expectation()
 
 
 def decode_text(data: bytes) -> str:
@@ -195,32 +185,6 @@ class BookIndex:
         return sorted(sources | binary_sources)
 
 
-def find_engine() -> str:
-    root = Path(__file__).resolve().parent
-    bundled = root / "engines"
-    names = ("stockfish.exe",) if os.name == "nt" else ("stockfish", "stockfish-linux", "stockfish-mac")
-    for name in names:
-        candidate = bundled / name
-        if candidate.is_file():
-            return str(candidate)
-    if bundled.is_dir():
-        for candidate in sorted(bundled.rglob("stockfish*")):
-            is_native = candidate.suffix.lower() == ".exe" if os.name == "nt" else candidate.suffix == ""
-            if candidate.is_file() and is_native:
-                return str(candidate)
-    configured = os.environ.get("STOCKFISH_PATH")
-    if configured and Path(configured).is_file():
-        return configured
-    located = shutil.which("stockfish")
-    if located:
-        return located
-    legacy = root.parent.parent / "stockfish-windows-x86-64-avx2"
-    if legacy.is_dir():
-        for candidate in legacy.rglob("stockfish*.exe"):
-            return str(candidate)
-    return ""
-
-
 VALUES = {chess.PAWN: 100, chess.KNIGHT: 320, chess.BISHOP: 330,
           chess.ROOK: 500, chess.QUEEN: 900}
 
@@ -240,6 +204,7 @@ def sacrifice_in_line(board: chess.Board, pv: list[chess.Move]) -> bool:
         return False
     color = board.turn
     baseline = material(board, color)
+    original_pieces = sum(len(board.pieces(kind, color)) for kind in (chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN))
     probe = board.copy()
     sustained = 0
     for ply, move in enumerate(pv[:12]):
@@ -248,8 +213,10 @@ def sacrifice_in_line(board: chess.Board, pv: list[chess.Move]) -> bool:
         probe.push(move)
         if ply >= 2 and probe.turn != color:
             deficit = baseline - material(probe, color)
-            sustained = sustained + 1 if deficit >= 100 else 0
-            if sustained >= 2 or (deficit >= 100 and probe.is_checkmate()):
+            pieces = sum(len(probe.pieces(kind, color)) for kind in (chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN))
+            piece_sacrificed = deficit >= 300 and pieces < original_pieces
+            sustained = sustained + 1 if piece_sacrificed else 0
+            if sustained >= 2 or (piece_sacrificed and probe.is_checkmate()):
                 return True
     return False
 
@@ -263,93 +230,30 @@ class MoveReview:
     uci: str
     category: str
     loss: int
-    white_cp: int
+    white_cp: int | None
     white_mate: int | None
     best_san: str
     line: str
     sources: list[str]
     explanation: str
     expected_loss: float = 0.0
+    best_expected: float | None = None
+    played_expected: float | None = None
 
 
 def player_accuracy(reviews: list[MoveReview], side: str) -> float | None:
-    """Local average of move accuracies; not Chess.com's private CAPS2 score.
+    """Mean of an exponential accuracy estimate using expected-point losses.
 
-    Uses Lichess's public win-probability and per-move accuracy curves, comparing
-    the best continuation with the played continuation. Aggregation is a simple
-    arithmetic mean, not Lichess's volatility-weighted game aggregation.
+    This is not Chess.com's CAPS2 or Lichess's weighted game accuracy.
     """
     scores = []
     for review in reviews:
         if review.side != side:
             continue
-        played = review.white_cp if side == "Brancas" else -review.white_cp
-        best = played + review.loss
-        probability = lambda cp: 100 / (1 + math.exp(-0.00368208 * max(-1000, min(1000, cp))))
-        delta = max(0, probability(best) - probability(played))
+        delta = max(0, review.expected_loss) * 100
         score = 100.0 if delta == 0 else max(0, min(100, 103.1668 * math.exp(-0.04354 * delta) - 3.1669))
         scores.append(score)
     return round(sum(scores) / len(scores), 1) if scores else None
-
-
-def analyse_game(game: chess.pgn.Game, engine_path: str, book: BookIndex | None = None,
-                 depth: int = 16, seconds: float = 0.3,
-                 thresholds: Thresholds = Thresholds(),
-                 progress: Callable[[int, int], None] | None = None) -> list[MoveReview]:
-    if not Path(engine_path).is_file():
-        raise ValueError("Selecione um executável Stockfish válido.")
-    book = book or BookIndex()
-    board = game.board()
-    moves = list(game.mainline_moves())
-    reviews = []
-    with chess.engine.SimpleEngine.popen_uci(engine_path, timeout=30) as engine:
-        engine.configure({"Threads": 1, "Hash": 128})
-        if "UCI_ShowWDL" in engine.options:
-            engine.configure({"UCI_ShowWDL": True})
-        limit = chess.engine.Limit(depth=depth, time=seconds)
-        for index, move in enumerate(moves, 1):
-            if board.is_game_over():
-                raise ValueError("O PGN contém lances após o fim da partida.")
-            color = board.turn
-            candidates = engine.analyse(board, limit, multipv=min(2, board.legal_moves.count()))
-            best = candidates[0]
-            best_move = best["pv"][0]
-            played = best if best_move == move else engine.analyse(board, limit, root_moves=[move])
-            best_score = best["score"].pov(color)
-            played_score = played["score"].pov(color)
-            best_cp = best_score.score(mate_score=100000)
-            played_cp = played_score.score(mate_score=100000)
-            best_expected = expected_points(best, color, board.ply())
-            played_expected = expected_points(played, color, board.ply())
-            second_expected = expected_points(candidates[1], color, board.ply()) if len(candidates) > 1 else None
-            sources = book.sources(board, move)
-            pv = played.get("pv", [move])
-            sacrifice = sacrifice_in_line(board, pv)
-            category = classify(in_book=bool(sources), is_best=best_move == move,
-                                sacrifice=sacrifice, best_expected=best_expected, played_expected=played_expected,
-                                second_expected=second_expected,
-                                missed_opportunity=bool(reviews and reviews[-1].expected_loss >= 0.10
-                                                        and best_expected >= 0.70 and played_expected <= 0.50),
-                                thresholds=thresholds)
-            loss = max(0, best_cp - played_cp)
-            explanation = CATEGORIES[category].description
-            if sources:
-                explanation += " Fonte: " + ", ".join(sources[:2]) + "."
-            elif category == "brilliant":
-                explanation += " Déficit material detectado na continuação da engine (heurística)."
-            else:
-                explanation += f" Melhor alternativa: {board.san(best_move)}."
-            white_score = played["score"].white()
-            reviews.append(MoveReview(
-                index, f"{board.fullmove_number}{'.' if color else '...'}",
-                "Brancas" if color else "Pretas", board.san(move), move.uci(), category, loss,
-                white_score.score(mate_score=100000), white_score.mate(), board.san(best_move),
-                board.variation_san(pv[:6]), sources, explanation,
-                max(0, best_expected - played_expected)))
-            board.push(move)
-            if progress:
-                progress(index, len(moves))
-    return reviews
 
 
 def export_review(game: chess.pgn.Game, reviews: list[MoveReview]) -> str:
@@ -363,7 +267,8 @@ def export_review(game: chess.pgn.Game, reviews: list[MoveReview]) -> str:
         # Preserve existing user comments and annotations.
         annotation = f"{category.label} {category.symbol}. {review.explanation}"
         node.comment = (node.comment + " " + annotation).strip()
-        score = (chess.engine.Mate(review.white_mate) if review.white_mate is not None
-                 else chess.engine.Cp(review.white_cp))
-        node.set_eval(chess.engine.PovScore(score, chess.WHITE))
+        if review.white_cp is not None or review.white_mate is not None:
+            score = (chess.engine.Mate(review.white_mate) if review.white_mate is not None
+                     else chess.engine.Cp(review.white_cp))
+            node.set_eval(chess.engine.PovScore(score, chess.WHITE))
     return copy.accept(chess.pgn.StringExporter(headers=True, variations=True, comments=True))

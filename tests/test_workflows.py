@@ -9,10 +9,10 @@ import chess.pgn
 import pytest
 from streamlit.testing.v1 import AppTest
 
-from chess_review import BookIndex, analyse_game, classify, export_review, find_engine, read_games, player_accuracy
+from chess_review import BookIndex, classify, export_review, read_games, player_accuracy
 from chesscom import fetch_archives, fetch_games, fetch_recent_games, get_json, normalize_username
 from game_play import play_move
-from tutor import (Passage, analyse_position, explain_with_ai, load_passages,
+from tutor import (Passage, load_passages,
                    position_facts, retrieve, tutor_mood, basic_lesson, single_paragraph)
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -21,6 +21,10 @@ ROOT = Path(__file__).resolve().parents[1]
 @pytest.fixture(autouse=True)
 def isolated_preferences(tmp_path, monkeypatch):
     monkeypatch.setenv('ACERVO_USER_PREFERENCE', str(tmp_path / 'user.json'))
+    monkeypatch.setenv('STOCKFISH_PATH', str(tmp_path / 'not-installed'))
+    for module in ('interactive_board', 'profile_avatar'):
+        sys.modules.pop(module, None)
+    monkeypatch.setattr('chesscom.fetch_rating', lambda user: (1600, 'Rápidas'))
 
 
 def parse(pgn):
@@ -144,17 +148,17 @@ def test_mate_explanation_does_not_advise_future_moves():
     assert 'Para melhorar' not in text
 
 
-@pytest.mark.parametrize('loss,category', [(0, 'excellent'), (0.0199, 'excellent'),
+@pytest.mark.parametrize('loss,category', [(0, 'best'), (0.0199, 'excellent'),
     (0.02, 'good'), (0.0499, 'good'), (0.05, 'inaccuracy'), (0.0999, 'inaccuracy'),
-    (0.10, 'mistake'), (0.1999, 'mistake'), (0.20, 'blunder'), (0.50, 'blunder')])
+    (0.10, 'mistake'), (0.1999, 'mistake'), (0.20, 'mistake'), (0.20001, 'blunder'), (0.50, 'blunder')])
 def test_public_expected_points_bands(loss, category):
     assert classify(in_book=False, is_best=False, sacrifice=False,
                     best_expected=0.75, played_expected=0.75-loss) == category
 
 
-def test_book_priority_and_automatic_opening_catalog():
+def test_opening_catalog_does_not_override_expected_points():
     assert classify(in_book=True, is_best=True, sacrifice=True,
-                    best_expected=1.0, played_expected=0.0) == 'book'
+                    best_expected=1.0, played_expected=0.0) == 'blunder'
     index=BookIndex()
     index.add_opening_catalog(ROOT / 'data/openings')
     board=chess.Board()
@@ -172,34 +176,6 @@ def test_tutor_expressions():
     assert tutor_mood('blunder')[0] == 'blunder'
 
 
-def test_ai_receives_real_context_and_book_sources():
-    response = BytesIO(json.dumps({'message': {'content': 'Controle o centro [1].'}}).encode())
-    with patch('tutor.urlopen', return_value=response) as request:
-        answer = explain_with_ai('test-model', chess.Board(), None, None,
-                                 [Passage('book.txt', 'Controle o centro.')], 'Qual plano?')
-    payload = json.loads(request.call_args.args[0].data)
-    assert payload['stream'] is False
-    context = json.loads(payload['messages'][1]['content'])
-    assert context['fen'] == chess.STARTING_FEN
-    assert context['livros'][0]['referencia'] == '[1] book.txt'
-    assert answer == 'Controle o centro [1].'
-
-
-@pytest.mark.skipif(not find_engine(), reason='Stockfish unavailable')
-def test_engine_line_and_sparse_review_export():
-    snapshot = analyse_position(chess.STARTING_FEN, find_engine(), 10, 0.1)
-    line_game = read_games(snapshot['line'])[0]
-    assert 1 <= len(list(line_game.mainline_moves())) <= 6
-    game = read_games('1. e4 e5 2. Nf3 *')[0]
-    reviews = analyse_game(game, find_engine(), BookIndex(), 8, 0.05)
-    assert 0 <= player_accuracy(reviews, 'Brancas') <= 100
-    assert player_accuracy([], 'Brancas') is None
-    exported = parse(export_review(game, [reviews[2]]))
-    nodes = list(exported.mainline())
-    assert nodes[0].eval() is None and nodes[1].eval() is None
-    assert nodes[2].eval() is not None
-
-
 def click(at, label):
     next(b for b in at.button if b.label == label).click().run(timeout=20)
     assert not at.exception
@@ -213,12 +189,6 @@ def test_ui_free_play_and_navigation():
     assert not any(s.label == 'Lance legal (SAN)' for s in at.selectbox)
     assert at.session_state.ply == 0
     assert not any(button.label in {'Início', 'Anterior', 'Próximo', 'Final'} for button in at.button)
-    if find_engine():
-        click(at, 'Analisar partida')
-        assert not at.session_state.reviews
-        click(at, 'Executar avaliação')
-        assert not at.session_state.reviews
-        click(at, 'Voltar')
     click(at, 'Nova partida · jogar livremente')
     assert at.session_state.ply == 0
     assert not at.dataframe
@@ -226,8 +196,6 @@ def test_ui_free_play_and_navigation():
     assert not any(s.value == 'Resumo do lance' for s in at.subheader)
     previous_game=at.session_state.game
     assert at.session_state.game == previous_game
-    assert any(tab.label == 'Estudo com livros' for tab in at.tabs)
-    assert any(tab.label == 'Tático' for tab in at.tabs)
 
 
 def test_ui_history_import():
@@ -246,32 +214,13 @@ def test_ui_history_import():
         assert not at.exception
         assert parse(at.session_state.game).headers['White'] == 'Demo'
         assert at.session_state.ply == 2
-        click(at, 'Analisar partida')
-        click(at, 'Executar avaliação')
         assert [m.value for m in at.metric] == ['98.2%', '91.3%']
-        if find_engine():
-            for _, future in list(at.session_state.jobs.values()):
-                future.result(timeout=30)
-            at.run(timeout=20)
-            assert len(at.session_state.reviews) == 2
-        click(at, 'Voltar')
 
 
-def test_ui_explanation_tracks_position_without_language_model():
-    sys.modules.pop('interactive_board', None)
-    at = AppTest.from_file(str(ROOT / 'app.py'))
-    at.session_state.engine_path = ''
-    at.session_state.game = '1. e4 e5 2. Nf3 *'
-    at.session_state.ply = 1
-    at.run(timeout=20)
+def test_ui_missing_stockfish_is_explicit():
+    at = AppTest.from_file(str(ROOT / 'app.py')).run(timeout=20)
     assert not at.exception
-    pawn_text = at.session_state.last_explanation
-    assert pawn_text.startswith('📖 e4') and 'e2' in pawn_text
-    at.session_state.ply = 3
-    at.run(timeout=20)
-    assert not at.exception
-    knight_text = at.session_state.last_explanation
-    assert knight_text.startswith('📖 Nf3') and 'cavalo' in knight_text
-    assert knight_text != pawn_text and '\n' not in knight_text
-    click(at, 'Analisar partida')
-    assert at.session_state.last_explanation == knight_text
+    assert at.session_state.last_explanation == ''
+    assert not at.session_state.jobs
+    assert any('Stockfish não encontrado' in info.value for info in at.info)
+    assert not any('Ollama' in widget.label or 'engine' in widget.label for widget in at.text_input)

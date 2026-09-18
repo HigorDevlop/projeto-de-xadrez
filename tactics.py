@@ -77,6 +77,8 @@ def fetch_puzzle(theme="mix", difficulty="normal") -> Puzzle:
 
 
 def solve_move(puzzle: Puzzle, progress: int, uci: str, fen: str):
+    if not isinstance(progress, int) or not 0 <= progress <= len(puzzle.solution):
+        raise ValueError("Progresso inválido. Recomece o tático.")
     board = chess.Board(puzzle.fen)
     for move in puzzle.solution[:progress]:
         board.push_uci(move)
@@ -88,3 +90,23 @@ def solve_move(puzzle: Puzzle, progress: int, uci: str, fen: str):
     if progress < len(puzzle.solution):
         progress += 1  # automatic opponent reply
     return progress, "Tático resolvido!" if progress == len(puzzle.solution) else "Correto! O adversário respondeu; continue."
+
+
+def fetch_puzzle_range(theme, minimum, maximum, exclude_id=None):
+    """Bounded sampling, never present an out-of-range exercise as a match.
+
+    Lichess only supports relative difficulty (anonymous reference: 1500).
+    Three sequential attempts are a small interactive search, not a DB download.
+    """
+    if (type(minimum) is not int or type(maximum) is not int
+            or not 0 <= minimum <= maximum <= 4000):
+        raise ValueError("Selecione uma faixa de rating válida, com início menor ou igual ao final.")
+    average = (minimum + maximum) / 2
+    difficulty = ('easiest' if average < 1000 else 'easier' if average < 1300
+                  else 'normal' if average < 1700 else 'harder' if average < 2000 else 'hardest')
+    for _ in range(3):
+        puzzle = fetch_puzzle(theme, difficulty)
+        if (minimum <= puzzle.rating <= maximum and puzzle.id != exclude_id
+                and (theme == 'mix' or theme in puzzle.themes)):
+            return puzzle
+    raise ValueError("Nenhum tático dessa faixa foi encontrado nesta busca. Amplie a faixa ou tente novamente.")

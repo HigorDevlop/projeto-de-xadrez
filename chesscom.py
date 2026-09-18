@@ -7,6 +7,20 @@ from urllib.request import Request, urlopen
 API = "https://api.chess.com/pub/player/"
 
 
+def fetch_rating(username):
+    stats = get_json(f"{API}{normalize_username(username)}/stats")
+    ratings = []
+    for key, label in (("chess_rapid", "Rápidas"), ("chess_blitz", "Blitz"), ("chess_bullet", "Bullet"), ("chess_daily", "Diárias")):
+        last = stats.get(key, {}).get("last", {})
+        value = last.get("rating")
+        if isinstance(value, int) and not isinstance(value, bool) and 0 < value < 5000:
+            ratings.append((last.get("date", 0), value, label))
+    if not ratings:
+        return None, "Sem rating publicado"
+    _, rating, label = max(ratings)
+    return rating, label
+
+
 def normalize_username(username: str) -> str:
     username = username.strip().lower()
     if not re.fullmatch(r"[a-z0-9_-]{2,50}", username):
