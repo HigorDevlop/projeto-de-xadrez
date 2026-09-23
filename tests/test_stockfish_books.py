@@ -26,7 +26,8 @@ def test_books_are_indexed_beyond_first_thirty_passages():
     text, refs = explain_from_books(board, study)
     assert refs[0].source == 'Livro de abertura, p. 46'
     assert refs[0].quote == 'Develop your pieces and control the center.'
-    assert refs[0].quote in text and refs[0].source in text
+    assert refs[0].quote not in text and refs[0].source in text
+    assert 'centro' in text
     assert 'e4' in text
 
 
@@ -100,7 +101,8 @@ def test_real_stockfish_preloads_book_citations_and_exports_evaluations():
     assert set(result['explanations']) == {0, 1, 2, 3}
     assert result['references'][1][0].quote == 'Control the center.'
     assert result['references'][3][0].quote == 'Develop the knight.'
-    assert 'Develop the knight.' in result['explanations'][3]
+    assert 'Develop the knight.' not in result['explanations'][3]
+    assert 'cavalo' in result['explanations'][3]
     assert all(0 <= review.played_expected <= review.best_expected <= 1 for review in result['reviews'].values())
     exported = chess.pgn.read_game(StringIO(export_review(game, list(result['reviews'].values()))))
     assert list(exported.mainline())[2].eval() is not None
@@ -146,8 +148,9 @@ def test_piece_sacrifice_requires_sustained_material_loss():
 def app_environment(tmp_path, monkeypatch):
     st.cache_resource.clear()
     monkeypatch.setenv('ACERVO_USER_PREFERENCE', str(tmp_path / 'user.json'))
+    monkeypatch.setenv('ACERVO_APPEARANCE_PREFERENCE', str(tmp_path / 'appearance.json'))
     monkeypatch.setattr('stockfish_analysis.find_engine', lambda: 'stockfish-test')
-    for module in ('interactive_board', 'profile_avatar'):
+    for module in ('interactive_board', 'profile_avatar', 'presentation', 'pgn_clipboard', 'cat_mascot', 'study_entrance', 'tactic_demo', 'page_chrome', 'tactics_forge'):
         sys.modules.pop(module, None)
 
 
@@ -164,6 +167,8 @@ def test_clicking_pgn_moves_uses_single_preloaded_batch(app_environment):
         at = AppTest.from_file(str(ROOT / 'app.py'))
         at.session_state.game = str(game)
         at.run(timeout=30)
+        request.assert_not_called()
+        at.button(key='study_toggle').click().run(timeout=30)
         drain(at)
         for ply in [3, 1, 2, 3, 1]:
             at.button(key=f'panel_{ply}').click().run(timeout=30)
@@ -171,6 +176,23 @@ def test_clicking_pgn_moves_uses_single_preloaded_batch(app_environment):
             assert at.session_state.ply == ply
             assert payload['explanations'][ply] in at.session_state.last_explanation
         assert request.call_count == 1
+
+
+@pytest.mark.parametrize('quality', ['Rápida', 'Equilibrada', 'Profunda'])
+def test_analysis_waits_for_selected_depth_and_hides_machine_list(app_environment, quality):
+    game, payload = example()
+    with patch('stockfish_analysis.analyse_with_books', return_value=payload) as request:
+        at = AppTest.from_file(str(ROOT / 'app.py'))
+        at.session_state.game = str(game)
+        at.run(timeout=30)
+        next(b for b in at.button if b.label == 'Analisar Partida').click().run(timeout=30)
+        request.assert_not_called()
+        at.radio(key='analysis_depth').set_value(quality)
+        next(b for b in at.button if b.label == 'Iniciar análise').click().run(timeout=30)
+        drain(at)
+        assert request.call_args.args[5] == quality
+        assert not at.session_state.analysis_options_open
+        assert not at.metric
 
 
 def test_changing_uploaded_books_rebuilds_explanations(app_environment):
@@ -185,6 +207,7 @@ def test_changing_uploaded_books_rebuilds_explanations(app_environment):
         at = AppTest.from_file(str(ROOT / 'app.py'))
         at.session_state.game = str(game)
         at.session_state.study_files = (('primeiro.txt', b'Control the center and develop your pieces.'),)
+        at.session_state.study_open = True
         at.run(timeout=30)
         drain(at)
         at.button(key='panel_1').click().run(timeout=30)
@@ -202,6 +225,7 @@ def test_late_response_cannot_replace_another_game(app_environment):
     game, payload = example()
     at = AppTest.from_file(str(ROOT / 'app.py'))
     at.session_state.game = str(game)
+    at.session_state.study_open = True
     original = Future()
     replacement = Future()
     class Pool:
@@ -221,7 +245,7 @@ def test_late_response_cannot_replace_another_game(app_environment):
         at.run(timeout=30)
         assert not at.exception
         assert at.session_state.explanations == {}
-        assert at.session_state.jobs['full'][0] != old_key
+        assert 'full' not in at.session_state.jobs
 
 
 def test_tactics_load_automatically_and_restart_without_network(app_environment, monkeypatch):
@@ -230,7 +254,12 @@ def test_tactics_load_automatically_and_restart_without_network(app_environment,
     puzzle = parse_puzzle({'game': {'pgn': '1. f3 e5 2. g4 *'},
                           'puzzle': {'id': 'test1', 'initialPly': 2, 'rating': 800,
                                      'themes': ['mateIn1'], 'solution': ['d8h4']}})
-    with patch('tactics.fetch_puzzle_range', return_value=puzzle) as fetch:
+    from dataclasses import replace
+    from tactics import THEMES
+    serial = iter(range(100))
+    def fetch_unique(*args):
+        return replace(puzzle, id=f'test{next(serial)}')
+    with patch('tactics.fetch_puzzle_range', side_effect=fetch_unique) as fetch:
         at = AppTest.from_file(str(ROOT / 'app.py'))
         at.session_state.main_view = 'Tático'
         at.run(timeout=30)
@@ -238,14 +267,16 @@ def test_tactics_load_automatically_and_restart_without_network(app_environment,
         # AppTest cannot switch to callable Pages by path; persist their registered hash.
         from streamlit.util import calc_hash
         at._page_hash = calc_hash('tatico')
-        assert len([button for button in at.button if button.key.startswith('theme_')]) == 12
+        assert len([button for button in at.button if (button.key or '').startswith('theme_')]) == len(THEMES)
         at.button(key='theme_mateIn1').click().run(timeout=30)
         assert not at.get('select_slider')
-        at.selectbox(key='rating_min').set_value(700).run(timeout=30)
-        assert not fetch.called
-        at.selectbox(key='rating_max').set_value(900).run(timeout=30)
-        drain(at)
-        assert at.session_state.puzzle.id == puzzle.id
+        for _ in range(3):
+            drain(at)
+        assert fetch.call_count == 3
+        assert at.session_state.puzzle.id == 'test0'
+        assert len(at.session_state.puzzle_buffer) == 2
+        assert at.selectbox(key='rating_min').value is None
+        assert at.selectbox(key='rating_max').value is None
         original_game = at.session_state.game
         for _ in range(3):
             at.session_state.puzzle_progress = 1
@@ -256,5 +287,11 @@ def test_tactics_load_automatically_and_restart_without_network(app_environment,
             assert at.session_state.puzzle_progress == 0
             assert at.session_state.puzzle_message == ''
             assert at.session_state.puzzle_revision > revision
-        assert fetch.call_count == 1
+        assert fetch.call_count == 3
         assert at.session_state.game == original_game
+        at.selectbox(key='rating_min').set_value(700).run(timeout=30)
+        at.selectbox(key='rating_max').set_value(900).run(timeout=30)
+        for _ in range(3):
+            drain(at)
+        assert at.session_state.puzzle_request[1:3] == (700, 900)
+        assert len(at.session_state.puzzle_buffer) == 2

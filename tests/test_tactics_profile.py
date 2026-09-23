@@ -103,3 +103,20 @@ def test_profile_rating_uses_most_recent_public_mode():
         assert fetch_rating('demo') == (1550, 'Blitz')
     with patch('chesscom.get_json', return_value={}):
         assert fetch_rating('demo') == (None, 'Sem rating publicado')
+
+
+def test_prefetch_excludes_current_buffer_and_recent_exercises():
+    from dataclasses import replace
+    from tactics import fetch_puzzle_pair
+    first = parse_puzzle(payload())
+    second = replace(first, id='test2')
+    third = replace(first, id='test3')
+    with patch('tactics.fetch_puzzle', side_effect=[first, first, second]) as fetch:
+        assert fetch_puzzle_pair('mateIn1', 0, 4000) == [first, second]
+        assert all(call.args == ('mateIn1', 'normal') for call in fetch.call_args_list)
+    with patch('tactics.fetch_puzzle', side_effect=[first, second, third]):
+        assert fetch_puzzle_range('mateIn1', 700, 900, {first.id, second.id}) == third
+    with patch('tactics.fetch_puzzle', return_value=first) as fetch:
+        with pytest.raises(ValueError, match='Nenhum tático'):
+            fetch_puzzle_range('mateIn1', 700, 900, first.id)
+        assert fetch.call_count == 3

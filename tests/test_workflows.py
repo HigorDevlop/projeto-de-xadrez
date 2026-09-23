@@ -21,8 +21,9 @@ ROOT = Path(__file__).resolve().parents[1]
 @pytest.fixture(autouse=True)
 def isolated_preferences(tmp_path, monkeypatch):
     monkeypatch.setenv('ACERVO_USER_PREFERENCE', str(tmp_path / 'user.json'))
+    monkeypatch.setenv('ACERVO_APPEARANCE_PREFERENCE', str(tmp_path / 'appearance.json'))
     monkeypatch.setenv('STOCKFISH_PATH', str(tmp_path / 'not-installed'))
-    for module in ('interactive_board', 'profile_avatar'):
+    for module in ('interactive_board', 'profile_avatar', 'presentation', 'pgn_clipboard', 'cat_mascot', 'study_entrance', 'page_chrome', 'tactics_forge', 'tactic_demo', 'recent_games', 'study_workspace'):
         sys.modules.pop(module, None)
     monkeypatch.setattr('chesscom.fetch_rating', lambda user: (1600, 'Rápidas'))
 
@@ -192,7 +193,7 @@ def test_ui_free_play_and_navigation():
     click(at, 'Nova partida · jogar livremente')
     assert at.session_state.ply == 0
     assert not at.dataframe
-    assert len(at.metric) == 2
+    assert len(at.metric) == 0
     assert not any(s.value == 'Resumo do lance' for s in at.subheader)
     previous_game=at.session_state.game
     assert at.session_state.game == previous_game
@@ -210,11 +211,14 @@ def test_ui_history_import():
         click(at, 'Entrar')
         assert not any(s.label == 'Mês das partidas' for s in at.selectbox)
         assert not any(b.label == 'Abrir no tabuleiro para analisar' for b in at.button)
+        at.session_state.requested_page = 'Análise'
+        at.run(timeout=20)
         at.selectbox(key='history_choice').set_value(0).run(timeout=60)
         assert not at.exception
         assert parse(at.session_state.game).headers['White'] == 'Demo'
         assert at.session_state.ply == 2
-        assert [m.value for m in at.metric] == ['98.2%', '91.3%']
+        assert not at.metric
+        assert at.session_state.official_accuracies == {'white': 98.2, 'black': 91.3}
 
 
 def test_ui_missing_stockfish_is_explicit():
@@ -222,5 +226,56 @@ def test_ui_missing_stockfish_is_explicit():
     assert not at.exception
     assert at.session_state.last_explanation == ''
     assert not at.session_state.jobs
+    click(at, 'Nova partida · jogar livremente')
+    click(at, 'Analisar Partida')
+    assert not at.session_state.analysis_requested
+    click(at, 'Iniciar análise')
     assert any('Stockfish não encontrado' in info.value for info in at.info)
     assert not any('Ollama' in widget.label or 'engine' in widget.label for widget in at.text_input)
+
+
+def test_intro_preference_persists_without_losing_theme(tmp_path):
+    at = AppTest.from_file(str(ROOT / 'app.py')).run(timeout=20)
+    at.toggle(key='intro_enabled').set_value(False).run(timeout=20)
+    assert not at.exception
+    at.segmented_control(key='theme_selector').set_value('☾ Escuro').run(timeout=20)
+    assert not at.exception
+    settings = json.loads((tmp_path / 'appearance.json').read_text(encoding='utf-8'))
+    assert settings['intro_enabled'] is False
+    assert settings['theme'] == 'Escuro'
+
+
+def test_forge_rewards_only_clean_unique_exercises_and_advances_from_buffer():
+    import ast
+    from dataclasses import replace
+    from types import SimpleNamespace
+    from tactics import parse_puzzle, solve_move
+    puzzle = parse_puzzle({'game': {'pgn': '1. f3 e5 2. g4 *'},
+                          'puzzle': {'id': 'failed', 'initialPly': 2, 'rating': 800,
+                                     'themes': ['mateIn1'], 'solution': ['d8h4']}})
+    state = SimpleNamespace(puzzle=puzzle, puzzle_progress=0, puzzle_revision=0,
+        puzzle_failed_ids=set(), puzzle_rewarded_ids=set(), forge_event=0, forge_sharpness=0,
+        puzzle_buffer=[replace(puzzle,id='clean'), replace(puzzle,id='third')], puzzle_seen=[])
+    tree = ast.parse((ROOT / 'app.py').read_text(encoding='utf-8'))
+    callbacks = ast.Module(body=[n for n in tree.body if isinstance(n,ast.FunctionDef)
+        and n.name in {'puzzle_changed','advance_puzzle','reset_puzzle'}], type_ignores=[])
+    namespace = {'st': SimpleNamespace(session_state=state), 'solve_move': solve_move}
+    exec(compile(callbacks,'app.py','exec'), namespace)
+    def attempt(uci, revision=None):
+        state.puzzle_board = SimpleNamespace(move={'uci':uci,'fen':state.puzzle.fen,
+            'revision':state.puzzle_revision if revision is None else revision})
+        namespace['puzzle_changed']()
+    attempt('g8f6')
+    assert state.forge_result == 'wrong' and state.forge_sharpness == 0
+    namespace['reset_puzzle']()
+    attempt('d8h4')
+    assert state.forge_result == 'recovered' and state.forge_sharpness == 0
+    assert state.puzzle.id == 'clean' and state.puzzle_progress == 0
+    attempt('d8h4', revision=0)
+    assert state.puzzle.id == 'clean' and state.forge_sharpness == 0
+    attempt('d8h4')
+    assert state.forge_result == 'correct' and state.forge_sharpness == 12
+    assert state.puzzle.id == 'third' and state.puzzle_progress == 0
+    state.puzzle = replace(puzzle,id='clean')
+    attempt('d8h4')
+    assert state.forge_result == 'recovered' and state.forge_sharpness == 12

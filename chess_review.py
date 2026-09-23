@@ -105,7 +105,7 @@ def read_games(text: str) -> list[chess.pgn.Game]:
     games = []
     while (game := chess.pgn.read_game(stream)) is not None:
         if game.errors:
-            raise ValueError(f"PGN inválido: {game.errors[0]}")
+            raise ValueError("PGN inválido: a sequência contém um lance ilegal ou uma notação não reconhecida.")
         if game.headers.get("Variant", "Standard") not in ("Standard", "Chess", "Normal"):
             raise ValueError("Esta versão aceita apenas xadrez clássico.")
         if not game.board().is_valid():

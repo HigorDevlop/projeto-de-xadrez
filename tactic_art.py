@@ -16,10 +16,19 @@ DIAGRAMS = {
     'deflection': ('3qr1k1/5ppp/8/8/8/8/3Q4/4R1K1 w - - 0 1', [('d2', 'd8'), ('e8', 'd8')]),
     'sacrifice': ('5rk1/5ppp/8/7Q/8/3B4/8/6K1 w - - 0 1', [('d3', 'h7')]),
     'endgame': ('8/5k2/8/4PK2/8/8/8/8 w - - 0 1', [('e5', 'e6')]),
+    'attraction': ('5rk1/5ppp/8/8/8/3B4/7Q/6K1 w - - 0 1', [('h2', 'h7'), ('g8', 'h7')]),
+    'clearance': ('6k1/8/8/8/3B4/8/3R4/6K1 w - - 0 1', [('d4', 'g7'), ('d2', 'd8')]),
+    'interference': ('3r2k1/8/8/8/8/1B6/8/3R2K1 w - - 0 1', [('b3', 'd5')]),
+    'intermezzo': ('4r1k1/5ppp/8/8/8/8/4Q3/4R1K1 w - - 0 1', [('e2', 'e8')]),
+    'promotion': ('8/3P2k1/8/8/8/8/8/6K1 w - - 0 1', [('d7', 'd8')]),
+    'underPromotion': ('8/3P4/4k3/8/8/8/8/6K1 w - - 0 1', [('d7', 'd8'), ('d8', 'e6')]),
+    'doubleCheck': ('4k3/8/8/8/4B3/8/4R3/6K1 w - - 0 1', [('e4', 'b5'), ('e2', 'e8')]),
+    'smotheredMate': ('6rk/6pp/8/4N3/8/8/8/6K1 w - - 0 1', [('e5', 'f7')]),
 }
 
 
 def theme_art(theme):
     fen, lines = DIAGRAMS[theme]
     arrows = [chess.svg.Arrow(chess.parse_square(a), chess.parse_square(b), color='#be8344') for a, b in lines]
-    return chess.svg.board(chess.Board(fen), arrows=arrows, coordinates=False, size=170)
+    return chess.svg.board(chess.Board(fen), arrows=arrows, coordinates=False, size=280,
+                           colors={'square light': '#f3f7eb', 'square dark': '#629269'})

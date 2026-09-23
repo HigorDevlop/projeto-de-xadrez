@@ -116,11 +116,13 @@ def explain_from_books(board, study, review=None, references=None):
     paragraphs = []
     if refs:
         for i, ref in enumerate(refs, 1):
-            relation = 'Comentário desta posição' if ref.match == 'posição exata' else 'Princípio relacionado'
-            paragraphs.append(f'{relation} [{i}] ({ref.source}): “{ref.quote}”')
+            # Preserve original evidence internally; never present an English quote
+            # or claim that a topic summary is a translation of the source.
+            topics = ', '.join(ref.topics) or 'a posição registrada'
+            paragraphs.append(f'Referência [{i}] ({ref.source}): material relacionado a {topics}.')
     else:
         paragraphs.append('Não foi encontrado trecho correspondente nos livros carregados.' if study.passages
-                          else 'Nenhum livro com texto foi carregado; esta explicação usa somente fatos do tabuleiro e o Stockfish.')
+                          else 'Nenhum livro com texto foi carregado; vamos examinar os fatos do tabuleiro.')
     if board.is_game_over():
         paragraphs.extend(position_facts(board))
     elif board.move_stack:
@@ -130,7 +132,7 @@ def explain_from_books(board, study, review=None, references=None):
         paragraphs.append('Nesta partida: ' + '. '.join(text.rstrip('.') for text in details['facts'][:2]) + '.')
         topics = sorted({topic for ref in refs if ref.match == 'tema relacionado' for topic in ref.topics})
         if topics:
-            paragraphs.append('A relação com o material é temática (' + ', '.join(topics) + '); a variante concreta é verificada pelo Stockfish.')
+            paragraphs.append('Observe ' + ', '.join(topics) + ' ao comparar a atividade das peças e a resposta adversária.')
     else:
         paragraphs.extend(position_facts(board)[:2])
     if review:
@@ -143,3 +145,19 @@ def explain_from_books(board, study, review=None, references=None):
         if review.sources:
             paragraphs.append('Linha catalogada em: ' + '; '.join(review.sources[:2]) + '.')
     return ' '.join(paragraphs), refs
+
+
+def prepare_explanations(game, study, cancel):
+    """Publish only a complete batch, including the initial position."""
+    from concurrent.futures import CancelledError
+    board = game.board()
+    explanations, references = {}, {}
+    explanations[0], references[0] = explain_from_books(board, study)
+    for ply, move in enumerate(game.mainline_moves(), 1):
+        if cancel.is_set():
+            raise CancelledError()
+        if move not in board.legal_moves:
+            raise ValueError('A partida contém um lance ilegal.')
+        board.push(move)
+        explanations[ply], references[ply] = explain_from_books(board, study)
+    return {'reviews': {}, 'explanations': explanations, 'references': references}

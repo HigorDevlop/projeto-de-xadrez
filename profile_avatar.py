@@ -12,22 +12,25 @@ _AVATAR = st.components.v2.component(
     <input class="file" type="file" accept="image/png,image/jpeg,image/webp" hidden>
     <div class="editor" hidden><p>Arraste a foto para ajustar o corte.</p>
     <canvas width="320" height="320" aria-label="Prévia do corte quadrado"></canvas>
-    <label>Zoom <input class="zoom" type="range" min="1" max="4" step="0.01" value="1"></label>
+    <label>Ampliação <input class="zoom" type="range" min="1" max="4" step="0.01" value="1"></label>
     <button class="save" type="button">Usar foto</button>
     <button class="cancel" type="button">Cancelar</button></div>
     <p class="error" role="alert"></p>''',
     css='''
     .avatar {width:128px;height:128px;padding:0;overflow:hidden;cursor:pointer;
-      border:2px solid var(--st-primary-color);border-radius:12px;background:var(--st-secondary-background-color);
-      color:var(--st-text-color);font:48px sans-serif}
+      border:2px solid #9674d5;border-radius:12px;background:var(--surface);
+      color:var(--ink);font:48px sans-serif}
     .avatar img {display:block;width:100%;height:100%;object-fit:cover}
-    .editor {max-width:340px;color:var(--st-text-color)}
+    .editor {position:fixed;top:15vh;left:50%;transform:translateX(-50%);width:372px;max-width:94vw;box-sizing:border-box;z-index:99999;
+      padding:16px;border-radius:16px;background:var(--surface);color:var(--ink);box-shadow:0 12px 60px #0008}
     canvas {width:100%;max-width:320px;touch-action:none;cursor:move;border-radius:8px}
-    .editor label {display:block;margin:8px 0}.editor button {padding:8px;margin:4px}
+    .editor label {display:block;margin:8px 0}.editor button {padding:8px;margin:4px;border-radius:8px;background:var(--surface);color:var(--ink);border:1px solid #9674d5}
     .error {color:#dc2626;font-size:14px}
     ''',
     js='''
     export default function({data,parentElement,setTriggerValue}) {
+      (parentElement.host ?? parentElement).style.setProperty('--surface',data.dark?'#202936':'#fffaf0');
+      (parentElement.host ?? parentElement).style.setProperty('--ink',data.dark?'#f3f4f6':'#202530');
       const q=s=>parentElement.querySelector(s);
       const avatar=q('.avatar'), input=q('.file'), editor=q('.editor'), canvas=q('canvas');
       if(parentElement._cropActive)return;
@@ -95,6 +98,6 @@ def avatar_changed():
         st.session_state.photo_error = str(error)
 
 
-def profile_avatar(photo):
+def profile_avatar(photo, dark=False):
     encoded = 'data:image/png;base64,' + base64.b64encode(photo).decode() if photo else None
-    return _AVATAR(data={'photo': encoded}, key='avatar_picker', on_photo_change=avatar_changed)
+    return _AVATAR(data={'photo': encoded, 'dark': dark}, key='avatar_picker', on_photo_change=avatar_changed)

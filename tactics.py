@@ -10,11 +10,14 @@ from urllib.request import Request, urlopen
 import chess
 import chess.pgn
 
-THEMES = {"Aleatório": "mix", "Garfo": "fork", "Cravada": "pin",
+THEMES = {"Aleatório": "mix", "Garfo / ataque duplo": "fork", "Cravada": "pin",
           "Espeto": "skewer", "Ataque descoberto": "discoveredAttack",
           "Mate em 1": "mateIn1", "Mate em 2": "mateIn2", "Mate na última fileira": "backRankMate",
           "Peça indefesa": "hangingPiece", "Desvio": "deflection", "Sacrifício": "sacrifice",
-          "Final": "endgame"}
+          "Final": "endgame", "Atração": "attraction", "Liberação de espaço": "clearance",
+          "Interferência": "interference", "Lance intermediário": "intermezzo",
+          "Promoção": "promotion", "Subpromoção": "underPromotion",
+          "Xeque duplo": "doubleCheck", "Mate abafado": "smotheredMate"}
 
 
 @dataclass(frozen=True)
@@ -101,12 +104,19 @@ def fetch_puzzle_range(theme, minimum, maximum, exclude_id=None):
     if (type(minimum) is not int or type(maximum) is not int
             or not 0 <= minimum <= maximum <= 4000):
         raise ValueError("Selecione uma faixa de rating válida, com início menor ou igual ao final.")
-    average = (minimum + maximum) / 2
+    average = 1500 if (minimum, maximum) == (0, 4000) else (minimum + maximum) / 2
     difficulty = ('easiest' if average < 1000 else 'easier' if average < 1300
                   else 'normal' if average < 1700 else 'harder' if average < 2000 else 'hardest')
+    excluded = {exclude_id} if isinstance(exclude_id, str) else set(exclude_id or ())
     for _ in range(3):
         puzzle = fetch_puzzle(theme, difficulty)
-        if (minimum <= puzzle.rating <= maximum and puzzle.id != exclude_id
+        if (minimum <= puzzle.rating <= maximum and puzzle.id not in excluded
                 and (theme == 'mix' or theme in puzzle.themes)):
             return puzzle
     raise ValueError("Nenhum tático dessa faixa foi encontrado nesta busca. Amplie a faixa ou tente novamente.")
+
+
+def fetch_puzzle_pair(theme, minimum, maximum):
+    """Prepare the current exercise and its successor before starting a session."""
+    first = fetch_puzzle_range(theme, minimum, maximum)
+    return [first, fetch_puzzle_range(theme, minimum, maximum, {first.id})]
