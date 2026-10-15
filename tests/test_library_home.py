@@ -83,6 +83,8 @@ def test_reader_pagination_and_editor_do_not_change_main_game(tmp_path, monkeypa
     at.session_state.main_view = 'Estudo com livros'
     at.run(timeout=25)
     assert not at.exception
+    from streamlit.util import calc_hash
+    at._page_hash = calc_hash('estudo')
     main_game = at.session_state.game
     next(b for b in at.button if b.label == 'Abrir livro').click().run(timeout=20)
     assert at.session_state.reader_page == 0

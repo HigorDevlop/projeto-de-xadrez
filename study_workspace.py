@@ -78,7 +78,7 @@ def move_changed():
     if state.book_editing or not isinstance(event, dict) or event.get('revision') != state.book_revision:
         return
     try:
-        state.book_game, state.book_ply = play_move(state.book_game, state.book_ply, event['uci'], event['fen'])
+        state.book_game, state.book_ply = play_move(state.book_game, event.get('ply', state.book_ply), event['uci'], event['fen'])
         state.pop('book_error', None)
     except (KeyError, ValueError) as error:
         state.book_error = str(error)
@@ -90,9 +90,11 @@ def navigate_changed():
     state = st.session_state
     event = state.book_board.navigate
     total = len(list(chess.pgn.read_game(StringIO(state.book_game)).mainline_moves()))
-    if isinstance(event, dict) and event.get('epoch') == f'book-{state.book_revision}' and type(event.get('to')) is int:
+    if (isinstance(event, dict) and event.get('epoch') == f'book-{state.book_revision}'
+            and type(event.get('to')) is int and type(event.get('sequence')) is int
+            and event['sequence'] > state.get('book_navigation_ack', 0)):
         state.book_ply = max(0, min(total, event['to']))
-        state.book_revision += 1
+        state.book_navigation_ack = event['sequence']
 
 
 def start_edit():
@@ -154,23 +156,36 @@ def import_fen():
 def render_study(files, dark, table):
     init_study()
     state = st.session_state
+    st.html('''<style>
+    .st-key-reading_workspace{margin-top:28px;padding-top:28px;border-top:1px solid var(--chess-border)}
+    .st-key-reading_workspace h3{margin-bottom:0}.st-key-reader_toolbar{gap:8px;justify-content:space-between}
+    [class*="st-key-book_cover_"]{padding:18px!important;background:var(--chess-surface);border-color:var(--chess-border)!important}
+    [class*="st-key-book_cover_"]:has(button[kind="primary"]){border-color:var(--chess-accent)!important}
+    [class*="st-key-book_cover_"] [data-testid="stMarkdownContainer"] p{line-height:1.4;font-size:15px}
+    [class*="st-key-book_cover_"] [data-testid="stImage"]{min-height:210px;display:flex;align-items:center;justify-content:center}
+    .reader-prose{white-space:pre-wrap;font:19px/1.85 Georgia,'Times New Roman',serif;color:#202B26;padding:20px 16px;overflow-wrap:anywhere}
+    .st-key-book_page_reader{box-shadow:0 4px 18px #00000007}
+    @media(max-width:700px){.st-key-reading_workspace{margin-top:16px;padding-top:16px}.reader-prose{font-size:17px;padding:12px 6px}}
+    </style>''')
     st.subheader('Biblioteca de estudo')
     def uploaded():
         selected = state[f'study_book_upload_{state.study_upload_revision}']
         state.study_files = merge_books(state.study_files, ((item.name, item.getvalue()) for item in selected))
-    st.file_uploader('Adicionar livros à biblioteca', type=['pdf', 'txt', 'md', 'pgn', 'bin'],
-                     accept_multiple_files=True, key=f'study_book_upload_{state.study_upload_revision}',
-                     on_change=uploaded, max_upload_size=200)
+    with st.expander('Adicionar livros à biblioteca', expanded=not files, icon=':material/library_add:'):
+        st.file_uploader('Adicionar livros à biblioteca', type=['pdf', 'txt', 'md', 'pgn', 'bin'],
+                         accept_multiple_files=True, key=f'study_book_upload_{state.study_upload_revision}',
+                         on_change=uploaded, max_upload_size=200)
+        st.caption('PDF, texto, Markdown e PGN para leitura. Arquivos Polyglot complementam as aberturas da análise.')
     if not files:
         st.info('Adicione um PDF para ver a capa e ler as páginas ao lado do tabuleiro. Você já pode montar uma posição abaixo.')
     entries = render_shelf(files)
-    if state.study_files and st.button('Remover livros desta aba'):
+    if state.study_files and st.button('Remover livros desta aba', icon=':material/delete:', type='tertiary'):
         state.study_files = ()
         state.study_upload_revision += 1
         state.reader_book = None
         st.rerun()
     with st.container(key='reading_workspace'):
-        reader, board_column = st.columns([1.1, 1], gap='large')
+        reader, board_column = st.columns([1, 1], gap='large')
         with reader:
             if state.reader_book in entries:
                 render_reader(entries[state.reader_book])
@@ -178,6 +193,7 @@ def render_study(files, dark, table):
                 st.info('Selecione uma capa e clique em Abrir livro. A leitura começa na primeira página.')
         with board_column, st.container(key='study_position'):
             st.subheader('Tabuleiro de estudo')
+            st.caption('Experimente as ideias do livro e monte suas próprias posições.')
             if not state.book_editing:
                 st.button('Editar posição', on_click=start_edit, icon=':material/edit:')
             else:
@@ -198,10 +214,14 @@ def render_study(files, dark, table):
             board = study_board()
             game = chess.pgn.read_game(StringIO(state.book_game))
             total = len(list(game.mainline_moves()))
+            if state.get('book_navigation_revision') != state.book_revision:
+                state.book_navigation_revision, state.book_navigation_ack = state.book_revision, 0
             interactive_board(board, key='book_board', on_move=move_changed,
                               revision=state.book_revision, ply=state.book_ply, total=total,
                               on_navigate=None if state.book_editing else navigate_changed,
-                              epoch=f'book-{state.book_revision}', dark=dark, table=table,
+                              epoch=f'book-{state.book_revision}', pgn=state.book_game,
+                              navigation_ack=state.book_navigation_ack,
+                              dark=dark, table=table,
                               editing=state.book_editing, edit_tool=state.book_tool, on_edit=edit_changed,
                               disabled=state.book_editing, flip=state.book_flip,
                               last_move=board.peek() if board.move_stack else None)

@@ -25,27 +25,33 @@ class Category:
 
 
 CATEGORIES = {
-    "book": Category("Livro", "Book", "#9B7955", "#FFFFFF", "📖",
-                     "Jogada catalogada no acervo carregado."),
-    "brilliant": Category("Brilhante", "Brilliant", "#26BDB0", "#102A43", "!!",
-                          "Sacrifício produtivo de peça, com tolerância ajustada ao rating."),
-    "best": Category("Melhor", "Best", "#8B5CF6", "#FFFFFF", "★",
-                     "Melhor lance sugerido pela engine."),
-    "great": Category("Grande Lance", "Great", "#1E40AF", "#FFFFFF", "!",
-                      "Única continuação boa identificada na busca (estimativa local)."),
-    "excellent": Category("Excelente", "Excellent", "#80A765", "#102A43", "✓✓",
-                          "Preserva quase todos os pontos esperados da posição."),
-    "good": Category("Bom", "Good", "#7DD3FC", "#102A43", "✓",
-                     "Mantém o equilíbrio ou a vantagem sem grandes concessões."),
-    "inaccuracy": Category("Imprecisão", "Inaccuracy", "#FACC15", "#332A00", "?!",
-                           "Reduz um pouco as chances de um bom resultado."),
-    "mistake": Category("Erro", "Mistake", "#F29A38", "#332A00", "?",
-                        "Reduz de forma relevante as chances de um bom resultado."),
-    "miss": Category("Oportunidade perdida", "Miss", "#D68C66", "#332A00", "×",
-                     "Deixa escapar uma oportunidade após um erro adversário (estimativa local)."),
-    "blunder": Category("Capivorada", "Blunder", "#DC2626", "#FFFFFF", "??",
-                        "Perda tática grave ou revés decisivo na avaliação."),
+    "brilliant": Category("Brilhante", "Brilliant", "#00CDB5", "#071A20", "♞✧",
+                          "Sacrifício produtivo de peça ou melhor continuação decisiva, pelo menos 10 pontos percentuais acima da segunda alternativa."),
+    "best": Category("Melhor", "Best", "#713BD6", "#FFFFFF", "♛◇",
+                     "Primeira escolha do Stockfish, sem perda de pontos esperados."),
+    "excellent": Category("Excelente", "Excellent", "#166534", "#FFFFFF", "♜◈",
+                          "Alternativa com perda inferior a 2 pontos percentuais, inclusive empates na avaliação."),
+    "good": Category("Bom", "Good", "#B7E355", "#16220B", "♝⋄",
+                     "Perda de 2 até menos de 5 pontos percentuais."),
+    "inaccuracy": Category("Imprecisão", "Inaccuracy", "#FACC15", "#2A2200", "♟⌁",
+                           "Perda de 5 até menos de 10 pontos percentuais."),
+    "mistake": Category("Erro", "Mistake", "#F97316", "#281201", "♚⨯",
+                        "Perda de 10 a 20 pontos percentuais, inclusive."),
+    "blunder": Category("Capivorada", "Blunder", "#C81E3A", "#FFFFFF", "♟‼",
+                        "Perda superior a 20 pontos percentuais."),
 }
+
+SPECIAL_CATEGORIES = frozenset({'brilliant'})
+
+
+def canonical_category(key):
+    """Read older analyses using the single current special-move category."""
+    return 'brilliant' if key == 'great' else key
+
+
+def canonical_explanation(text):
+    return text.replace('classificado como GENIAL', 'classificado como Brilhante').replace(
+        'classificado como Grande Lance', 'classificado como Brilhante')
 
 
 @dataclass(frozen=True)
@@ -77,10 +83,10 @@ def classify(*, in_book: bool, is_best: bool, sacrifice: bool,
     if (sacrifice and played_expected >= 0.5 and loss <= tolerance
             and second_expected is not None and second_expected < 0.95):
         return "brilliant"
-    if (loss == 0 and second_expected is not None and best_expected >= 0.5
-            and best_expected - second_expected >= 0.1):
-        return "great"
-    if loss == 0:
+    if (is_best and loss == 0 and second_expected is not None and best_expected >= 0.5
+            and round(best_expected - second_expected, 8) >= 0.1):
+        return "brilliant"
+    if is_best and loss == 0:
         return "best"
     if loss < thresholds.excellent:
         return "excellent"
@@ -263,9 +269,9 @@ def export_review(game: chess.pgn.Game, reviews: list[MoveReview]) -> str:
         review = by_ply.get(ply)
         if review is None:
             continue
-        category = CATEGORIES[review.category]
+        category = CATEGORIES[canonical_category(review.category)]
         # Preserve existing user comments and annotations.
-        annotation = f"{category.label} {category.symbol}. {review.explanation}"
+        annotation = f"{category.label} {category.symbol}. {canonical_explanation(review.explanation)}"
         node.comment = (node.comment + " " + annotation).strip()
         if review.white_cp is not None or review.white_mate is not None:
             score = (chess.engine.Mate(review.white_mate) if review.white_mate is not None

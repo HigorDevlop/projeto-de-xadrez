@@ -1,17 +1,18 @@
-# Adaptado do tema Minimal instalado com o Streamlit; fontes locais.
+# Acervo: marfim, floresta e tipografia editorial, com fontes locais.
 [theme]
-base = "dark"
-primaryColor = "#8B5CF6"
-backgroundColor = "#18181b"
-secondaryBackgroundColor = "#27272a"
-textColor = "#fafafa"
-borderColor = "#3f3f46"
-baseRadius = "6px"
+base = "light"
+primaryColor = "#176B4A"
+backgroundColor = "#F5F3ED"
+secondaryBackgroundColor = "#ECEFE8"
+textColor = "#202B26"
+borderColor = "#D9DED5"
+baseRadius = "9px"
 font = "sans-serif"
+headingFont = "serif"
 
 [theme.sidebar]
-backgroundColor = "#101014"
-secondaryBackgroundColor = "#27272a"
+backgroundColor = "#FFFEFA"
+secondaryBackgroundColor = "#ECEFE8"
 
 [server]
 address = "127.0.0.1"
@@ -20,3 +21,7 @@ maxUploadSize = 200
 
 [browser]
 gatherUsageStats = false
+
+[runner]
+# Finish state updates before handling the next move or lesson transition.
+fastReruns = false

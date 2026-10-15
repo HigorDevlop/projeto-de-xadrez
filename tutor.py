@@ -6,7 +6,7 @@ import unicodedata
 
 import chess
 
-from chess_review import CATEGORIES, decode_text, position_key, read_games
+from chess_review import CATEGORIES, decode_text, position_key, read_games, canonical_category
 from strategy import strategic_context
 
 
@@ -178,7 +178,7 @@ def basic_lesson(board, review=None, snapshot=None):
     move = before.pop()
     details = move_ideas(before, move)
     sentences = details["facts"][:4]
-    if review and review.category in {"inaccuracy", "mistake", "blunder", "miss"}:
+    if review and review.category in {"inaccuracy", "mistake", "blunder"}:
         sentences.append(f"A análise aponta {review.best_san} como alternativa mais precisa a {details['san']}; compare o que muda na defesa e nas ameaças antes de escolher")
     if snapshot and snapshot["line"] and not board.is_game_over():
         sentences.append(f"O adversário pode responder com {snapshot['steps'][0].split(':')[0]}; uma continuação possível é {snapshot['line']}, sem que essa sequência seja obrigatória")
@@ -193,21 +193,19 @@ def single_paragraph(text: str) -> str:
 
 
 def tutor_mood(category=None, thinking=False):
+    category = canonical_category(category)
     expressions = {
         None: ("pensativo", "Antes de escolher seu plano, descubra o que o adversário ameaça."),
-        "book": ("serio", "Conhecer a abertura ajuda; entender a ideia por trás dela é o que ensina."),
         "brilliant": ("pensativo", "Uma ideia incomum apareceu; vamos entender por que ela funciona."),
         "best": ("serio", "O lance encontrou a continuação mais precisa desta posição."),
-        "great": ("pensativo", "Esta escolha é estreita; observe o detalhe que a torna especial."),
         "excellent": ("serio", "O lance preserva a posição com segurança e propósito."),
         "good": ("serio", "A posição continua saudável; veja como o plano pode avançar."),
         "inaccuracy": ("pensativo", "Há um pequeno detalhe a investigar antes de repetir este lance."),
         "mistake": ("raiva", "Esse lance deixou uma chance escapar. Vamos descobrir o que passou despercebido."),
-        "miss": ("raiva", "Uma oportunidade ficou para trás; vamos localizar o momento decisivo."),
         "blunder": ("raiva", "Este erro muda a posição de forma grave; vamos encontrar a defesa necessária."),
     }
     _, message = expressions.get(category, expressions[None])
-    return category if category in CATEGORIES else "book", message
+    return category if category in CATEGORIES else None, message
 
 
 def move_lesson(board, review=None, snapshot=None, category=None, question="", variation=0):

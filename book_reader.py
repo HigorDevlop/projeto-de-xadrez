@@ -101,19 +101,24 @@ def book_cover(name, data, info):
 def render_shelf(files):
     state = st.session_state
     readable = {}
-    columns = st.columns(4)
+    if not files:
+        return readable
+    st.caption(f'{len(files)} {"livro na biblioteca" if len(files) == 1 else "livros na biblioteca"} · escolha uma capa para começar')
+    columns = st.columns(4, gap='large')
     for index, (name, data) in enumerate(files):
         identity = book_id(name, data)
         with columns[index % 4], st.container(border=True, key=f'book_cover_{identity}'):
             try:
                 info = book_info(name, data)
                 book_cover(name, data, info)
-                st.write(info['title'])
+                st.markdown(f'**{escape(info["title"])}**')
                 if info['count']:
                     readable[identity] = (name, data, info)
-                    st.caption(f"{info['count']} páginas")
+                    selected = state.get('reader_book') == identity
+                    st.caption(f"{info['count']} páginas" + (' · Em leitura' if selected else ''))
                     st.button('Abrir livro', key=f'open_book_{identity}', on_click=open_book,
-                              args=(identity,), width='stretch')
+                              args=(identity,), width='stretch', icon=':material/menu_book:',
+                              type='primary' if selected else 'secondary')
                 else:
                     st.caption('Livro de aberturas Polyglot: usado na análise, sem páginas de leitura.')
             except Exception as error:
@@ -128,21 +133,22 @@ def render_reader(entry):
     state = st.session_state
     count = info['count']
     state.reader_page = max(0, min(count - 1, state.get('reader_page', 0)))
-    st.markdown(f'**{info["title"]}**')
-    with st.container(horizontal=True, vertical_alignment='center'):
+    st.subheader(info['title'])
+    st.caption('LEITURA EM ANDAMENTO')
+    with st.container(horizontal=True, vertical_alignment='center', key='reader_toolbar'):
         st.button('Página anterior', icon=':material/chevron_left:', key='reader_previous',
                   disabled=state.reader_page == 0, on_click=turn_page, args=(-1, count))
         st.caption(f'Página {state.reader_page + 1} de {count}')
         st.button('Próxima página', icon=':material/chevron_right:', key='reader_next',
                   disabled=state.reader_page == count - 1, on_click=turn_page, args=(1, count))
-    st.number_input('Ir para a página', min_value=1, max_value=count, value=state.reader_page + 1,
+    st.number_input('Ir para a página', min_value=1, max_value=count,
                     step=1, key='reader_page_input', on_change=page_input_changed, args=(count,))
+    st.progress((state.reader_page + 1) / count)
     with st.container(height=680, border=True, key='book_page_reader'):
         try:
             if info['kind'] == 'pdf':
                 st.image(pdf_page(data, state.reader_page), width='stretch')
             else:
-                st.text(info['pages'][state.reader_page])
+                st.html('<article class="reader-prose">' + escape(info['pages'][state.reader_page]) + '</article>')
         except Exception as error:
             st.error(f'Não foi possível abrir esta página: {error}')
-

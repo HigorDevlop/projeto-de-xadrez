@@ -125,7 +125,7 @@ def test_rating_adjusts_only_productive_sacrifice_tolerance():
     assert classify(**args, rating=2400) == 'excellent'
     assert classify(**{**args, 'sacrifice': False}, rating=800) == 'excellent'
     assert classify(**{**args, 'played_expected': .3}, rating=800) == 'blunder'
-    assert classify(**{**args, 'sacrifice': False, 'played_expected': .7, 'second_expected': .5}) == 'great'
+    assert classify(**{**args, 'sacrifice': False, 'is_best': True, 'played_expected': .7, 'second_expected': .5}) == 'brilliant'
 
 
 def test_pawn_offer_is_not_a_brilliant_piece_sacrifice():
@@ -150,8 +150,16 @@ def app_environment(tmp_path, monkeypatch):
     monkeypatch.setenv('ACERVO_USER_PREFERENCE', str(tmp_path / 'user.json'))
     monkeypatch.setenv('ACERVO_APPEARANCE_PREFERENCE', str(tmp_path / 'appearance.json'))
     monkeypatch.setattr('stockfish_analysis.find_engine', lambda: 'stockfish-test')
-    for module in ('interactive_board', 'profile_avatar', 'presentation', 'pgn_clipboard', 'cat_mascot', 'study_entrance', 'tactic_demo', 'page_chrome', 'tactics_forge'):
+    for module in ('interactive_board', 'profile_avatar', 'presentation', 'pgn_clipboard', 'cat_mascot', 'study_entrance', 'tactic_demo', 'page_chrome', 'tactics_forge', 'recent_games', 'study_workspace'):
         sys.modules.pop(module, None)
+
+
+def analysis_app():
+    from streamlit.util import calc_hash
+    at = AppTest.from_file(str(ROOT / 'app.py'))
+    at.session_state.main_view = 'Análise'
+    at._page_hash = calc_hash('analise')
+    return at
 
 
 def drain(at):
@@ -164,7 +172,7 @@ def drain(at):
 def test_clicking_pgn_moves_uses_single_preloaded_batch(app_environment):
     game, payload = example()
     with patch('stockfish_analysis.analyse_with_books', return_value=payload) as request:
-        at = AppTest.from_file(str(ROOT / 'app.py'))
+        at = analysis_app()
         at.session_state.game = str(game)
         at.run(timeout=30)
         request.assert_not_called()
@@ -182,7 +190,7 @@ def test_clicking_pgn_moves_uses_single_preloaded_batch(app_environment):
 def test_analysis_waits_for_selected_depth_and_hides_machine_list(app_environment, quality):
     game, payload = example()
     with patch('stockfish_analysis.analyse_with_books', return_value=payload) as request:
-        at = AppTest.from_file(str(ROOT / 'app.py'))
+        at = analysis_app()
         at.session_state.game = str(game)
         at.run(timeout=30)
         next(b for b in at.button if b.label == 'Analisar Partida').click().run(timeout=30)
@@ -204,7 +212,7 @@ def test_changing_uploaded_books_rebuilds_explanations(app_environment):
         text, refs = explain_from_books(board, study)
         return {'reviews': {}, 'explanations': {0: 'Inicial.', 1: text}, 'references': {1: refs}}
     with patch('stockfish_analysis.analyse_with_books', side_effect=analyse) as evaluate:
-        at = AppTest.from_file(str(ROOT / 'app.py'))
+        at = analysis_app()
         at.session_state.game = str(game)
         at.session_state.study_files = (('primeiro.txt', b'Control the center and develop your pieces.'),)
         at.session_state.study_open = True
@@ -223,7 +231,7 @@ def test_changing_uploaded_books_rebuilds_explanations(app_environment):
 def test_late_response_cannot_replace_another_game(app_environment):
     from concurrent.futures import Future
     game, payload = example()
-    at = AppTest.from_file(str(ROOT / 'app.py'))
+    at = analysis_app()
     at.session_state.game = str(game)
     at.session_state.study_open = True
     original = Future()
@@ -260,7 +268,7 @@ def test_tactics_load_automatically_and_restart_without_network(app_environment,
     def fetch_unique(*args):
         return replace(puzzle, id=f'test{next(serial)}')
     with patch('tactics.fetch_puzzle_range', side_effect=fetch_unique) as fetch:
-        at = AppTest.from_file(str(ROOT / 'app.py'))
+        at = analysis_app()
         at.session_state.main_view = 'Tático'
         at.run(timeout=30)
         assert not at.exception

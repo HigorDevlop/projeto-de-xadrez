@@ -6,6 +6,6 @@ A licença está em `Stockfish-COPYING.txt`; o código-fonte correspondente e os
 
 No Linux/macOS o app também procura `engines/stockfish`, `stockfish-linux`, `stockfish-mac` e o comando `stockfish` no PATH. O Docker instala o pacote Linux e usa `/usr/games/stockfish`.
 
-O app usa um processo por vez, uma thread, hash de 64 MB e `UCI_ShowWDL`. Pontos esperados são vitória + metade dos empates. A classificação usa perdas nessa expectativa, com aproximações para Brilhante e Grande Lance; ela não reproduz o algoritmo privado do Chess.com. As probabilidades WDL do motor se referem ao seu modelo de jogo, não ao rating humano. Referência: [modelo WDL oficial](https://github.com/official-stockfish/WDL_model).
+O app usa um processo por vez, uma thread, hash de 64 MB e `UCI_ShowWDL`. Pontos esperados são vitória + metade dos empates. A classificação usa perdas nessa expectativa, com aproximações para Brilhante e GENIAL; ela não reproduz o algoritmo privado do Chess.com. As probabilidades WDL do motor se referem ao seu modelo de jogo, não ao rating humano. Referência: [modelo WDL oficial](https://github.com/official-stockfish/WDL_model).
 
 Livros são indexados pelo aplicativo antes da avaliação, sem modificar ou treinar o Stockfish. Explicações usam trechos reais e composição por regras; não há modelo textual adicional.

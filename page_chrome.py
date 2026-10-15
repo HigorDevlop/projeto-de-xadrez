@@ -1,4 +1,4 @@
-"""Recolhe a navegação uma vez ao carregar; o usuário controla as aberturas seguintes."""
+"""Recolhe a navegação apenas no celular; preserva os atalhos no desktop."""
 import streamlit as st
 
 
@@ -9,7 +9,7 @@ _CHROME = st.components.v2.component(
       function initialize(){
         const sidebar=document.querySelector('[data-testid="stSidebar"]');
         if(!sidebar)return false;
-        if(sidebar.getAttribute('aria-expanded')==='true'){
+        if(window.matchMedia('(max-width: 768px)').matches && sidebar.getAttribute('aria-expanded')==='true'){
           const control=sidebar.querySelector('[data-testid="stSidebarCollapseButton"] button,button[data-testid="stSidebarCollapseButton"]');
           if(!control)return false;
           control.click();

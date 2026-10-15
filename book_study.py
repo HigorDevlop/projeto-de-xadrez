@@ -6,7 +6,7 @@ import unicodedata
 
 import chess
 
-from chess_review import CATEGORIES, position_key
+from chess_review import CATEGORIES, position_key, canonical_category
 from strategy import describe
 from tutor import move_ideas, position_facts
 
@@ -136,7 +136,7 @@ def explain_from_books(board, study, review=None, references=None):
     else:
         paragraphs.extend(position_facts(board)[:2])
     if review:
-        paragraphs.append(f'Pela avaliação do Stockfish, {review.san} é classificado como {CATEGORIES[review.category].label}, '
+        paragraphs.append(f'Pela avaliação do Stockfish, {review.san} é classificado como {CATEGORIES[canonical_category(review.category)].label}, '
                           f'com perda de {review.expected_loss:.1%} dos pontos esperados.')
         if not board.is_game_over() and review.line:
             paragraphs.append(f'Continuação calculada a partir do lance jogado: {review.line}.')

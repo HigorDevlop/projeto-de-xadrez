@@ -31,24 +31,48 @@ export default function ({data,parentElement}) {
     }
     ready=true;resume();
   }
+  function restingLayers(p){
+    // Warp a small patch around the free tip, continuously fading displacement
+    // to zero at its attachment. The torso pixels remain untouched.
+    const left=Math.max(0,p.x-12),top=Math.floor(p.y+p.h*.68);
+    const width=Math.ceil(p.x+p.w*.46-left),height=Math.min(400,p.y+p.h+12)-top;
+    const tile=document.createElement('canvas');tile.width=tile.height=400;
+    const output=tile.getContext('2d');output.drawImage(p.tile,0,0);
+    return {tile,output,left,top,width,height,patch:output.createImageData(width,height),
+      pixels:p.tile.getContext('2d').getImageData(0,0,400,400).data,
+      pivot:{x:p.x+p.w*.43,y:p.y+p.h*.94}};
+  }
+  function restingFrame(p,sway){
+    const layer=p.resting ??= restingLayers(p),{left,top,width,height,pixels,patch,pivot}=layer;
+    for(let row=0;row<height;row++)for(let col=0;col<width;col++){
+      const x=left+col,y=top+row;let sx=x,sy=y;
+      // Inverse mapping with bilinear sampling avoids triangular seams and gaps.
+      for(let step=0;step<2;step++){
+        const weight=ease((.46-(sx-p.x)/p.w)/.28)*ease(((sy-p.y)/p.h-.70)/.16);
+        const angle=sway*weight,cos=Math.cos(angle),sin=Math.sin(angle);
+        sx=pivot.x+(x-pivot.x)*cos+(y-pivot.y)*sin;
+        sy=pivot.y-(x-pivot.x)*sin+(y-pivot.y)*cos;
+      }
+      sx=Math.max(0,Math.min(398.999,sx));sy=Math.max(0,Math.min(398.999,sy));
+      const ix=Math.floor(sx),iy=Math.floor(sy),fx=sx-ix,fy=sy-iy;
+      const a=(iy*400+ix)*4,b=a+4,c=a+1600,d=c+4,out=(row*width+col)*4;
+      for(let channel=0;channel<4;channel++)patch.data[out+channel]=
+        mix(mix(pixels[a+channel],pixels[b+channel],fx),mix(pixels[c+channel],pixels[d+channel],fx),fy);
+    }
+    layer.output.putImageData(patch,left,top);return layer.tile;
+  }
   function drawPose(index,alpha,angle,breath,tailTime=null){
     if(alpha<=0)return;
-    const p=poses[index],scale=390/Math.max(p.w,p.h),w=p.w*scale,h=p.h*scale;
-    ctx.save();ctx.globalAlpha=alpha;ctx.translate(240,240);ctx.rotate(angle);ctx.scale(1,breath);
-    const x=-w/2,y=-h/2;
-    if(tailTime===null){ctx.drawImage(p.tile,p.x,p.y,p.w,p.h,x,y,w,h);}
+    const p=poses[index];
+    // Constant cell scale: tail length must not make the entire animal grow/shrink.
+    const scale=1.06;
+    ctx.save();ctx.globalAlpha=alpha;ctx.globalCompositeOperation='lighter';ctx.translate(240,240);ctx.rotate(angle);
+    ctx.translate(-200*scale,-200*scale);ctx.scale(scale,scale);
+    if(tailTime===null){ctx.drawImage(p.tile,0,0);}
     else {
-      // Only the lower tail region bends; its root remains anchored to the body.
-      const cut=Math.floor(p.h*.77),tail=p.h-cut;
-      ctx.drawImage(p.tile,p.x,p.y,p.w,cut,x,y,w,cut*scale);
-      for(let row=0;row<tail;row++){
-        const progress=row/Math.max(1,tail-1);
-        const envelope=progress*progress*(3-2*progress);
-        const wave=reduced.matches?0:
-          (Math.sin(tailTime/920-progress*1.55)*.8+
-           Math.sin(tailTime/1500-progress*.7+.6)*.2)*24*envelope;
-        ctx.drawImage(p.tile,p.x,p.y+cut+row,p.w,1,x+wave,y+(cut+row)*scale,w,scale+.2);
-      }
+      const seconds=tailTime/1000;
+      const sway=reduced.matches?0:(Math.sin(seconds*1.35)*.08+Math.sin(seconds*.61+.4)*.025);
+      ctx.drawImage(sway===0?p.tile:restingFrame(p,sway),0,0);
     }
     ctx.restore();
   }
@@ -73,22 +97,26 @@ export default function ({data,parentElement}) {
       x=edge-size+size*.52*reveal;y=Math.max(70,Math.min(innerHeight-size,boardRect.top+boardRect.height*.22));
       // The same sitting cat leans around the left edge, nose tilted upward.
       const look=ease((t-1400)/750);
-      drawPose(12,1,mix(1.45,.9,look),1);
+      drawPose(12,1,mix(1.10,.92,look),1);
     } else if(t<4800){pose='fora';x=innerWidth+size;}
     else if(t<7350){
       pose='entrando-direita';
       const progress=ease((t-4800)/2550);
       x=mix(innerWidth+size*.2,rect.left,progress);
       y=rect.top+Math.sin((t-4800)/145)*size*.009*Math.sin(progress*Math.PI);
-      const gait=(t-4800)/145,first=Math.floor(gait)%8,fraction=gait%1;
-      drawPose(first,1-fraction,-Math.PI/2,1);
-      drawPose((first+1)%8,fraction,-Math.PI/2,1);
+      const distance=(innerWidth+size*.2-rect.left)*progress;
+      const gait=distance/(size*.32)*8,first=Math.floor(gait)%8,fraction=gait%1;
+      const heading=mix(-Math.PI/2,-.35,ease((progress-.60)/.40));
+      drawPose(first,1-fraction,heading,1);
+      drawPose((first+1)%8,fraction,heading,1);
     } else if(t<8250){
       pose='sentando';const p=ease((t-7350)/900);
-      drawPose(8,1-p,mix(-Math.PI/2,-.35,p),1);
+      const gait=(innerWidth+size*.2-rect.left)/(size*.32)*8,first=Math.floor(gait)%8,fraction=gait%1;
+      drawPose(first,(1-fraction)*(1-p),-.35,1);
+      drawPose((first+1)%8,fraction*(1-p),-.35,1);
       drawPose(12,p,-.35,1);
     } else if(t<10250){
-      pose='observando';drawPose(12,1,-.35+Math.sin((t-8250)/900)*.035,1);
+      pose='observando';drawPose(12,1,-.35,1);
     } else if(t<11750){
       pose='deitando';const p=ease((t-10250)/1500);
       drawPose(12,1-p,-.35,1-p*.12);

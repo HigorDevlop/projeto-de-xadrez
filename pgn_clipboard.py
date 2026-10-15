@@ -16,9 +16,9 @@ _COPY = st.components.v2.component(
     js='''
     export default function({data,parentElement}) {
       const field=parentElement.querySelector('textarea'), button=parentElement.querySelector('button');
-      (parentElement.host ?? parentElement).style.setProperty('--surface',data.dark?'#202936':'#fffaf0');
-      (parentElement.host ?? parentElement).style.setProperty('--ink',data.dark?'#f3f4f6':'#202530');
-      (parentElement.host ?? parentElement).style.setProperty('--border',data.dark?'#566273':'#b5a991');
+      (parentElement.host ?? parentElement).style.setProperty('--surface',data.dark?'#1A2720':'#FFFEFA');
+      (parentElement.host ?? parentElement).style.setProperty('--ink',data.dark?'#EDF3ED':'#202B26');
+      (parentElement.host ?? parentElement).style.setProperty('--border',data.dark?'#354A3C':'#D9DED5');
       field.value=data.pgn;
       button.onclick=async()=>{
         const status=parentElement.querySelector('p');

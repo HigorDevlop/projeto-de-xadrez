@@ -153,7 +153,7 @@ def test_mate_explanation_does_not_advise_future_moves():
     (0.02, 'good'), (0.0499, 'good'), (0.05, 'inaccuracy'), (0.0999, 'inaccuracy'),
     (0.10, 'mistake'), (0.1999, 'mistake'), (0.20, 'mistake'), (0.20001, 'blunder'), (0.50, 'blunder')])
 def test_public_expected_points_bands(loss, category):
-    assert classify(in_book=False, is_best=False, sacrifice=False,
+    assert classify(in_book=False, is_best=loss == 0, sacrifice=False,
                     best_expected=0.75, played_expected=0.75-loss) == category
 
 
@@ -180,13 +180,16 @@ def test_tutor_expressions():
 def click(at, label):
     next(b for b in at.button if b.label == label).click().run(timeout=20)
     assert not at.exception
+    from streamlit.util import calc_hash
+    if at.session_state.active_tab == 'Análise':
+        at._page_hash = calc_hash('analise')
 
 
 def test_ui_free_play_and_navigation():
     at = AppTest.from_file(str(ROOT / 'app.py')).run(timeout=20)
     assert not at.exception
     assert not any(s.value == 'Leitura do lance' for s in at.subheader)
-    click(at, 'Nova partida · jogar livremente')
+    click(at, 'Nova partida')
     assert not any(s.label == 'Lance legal (SAN)' for s in at.selectbox)
     assert at.session_state.ply == 0
     assert not any(button.label in {'Início', 'Anterior', 'Próximo', 'Final'} for button in at.button)
@@ -197,6 +200,21 @@ def test_ui_free_play_and_navigation():
     assert not any(s.value == 'Resumo do lance' for s in at.subheader)
     previous_game=at.session_state.game
     assert at.session_state.game == previous_game
+
+
+def test_openings_page_is_available_from_main_navigation(tmp_path, monkeypatch):
+    monkeypatch.setenv('ACERVO_PREPARATION_DIR', str(tmp_path))
+    for module in ('opening_practice', 'opening_training_ui', 'opening_transition',
+                   'opening_catalog_ui', 'preparation_ui', 'preparation_workspace'):
+        sys.modules.pop(module, None)
+    at = AppTest.from_file(str(ROOT / 'app.py')).run(timeout=20)
+    assert not at.exception
+    at.session_state.requested_page = 'Aberturas'
+    at.run(timeout=20)
+    assert not at.exception
+    assert at.session_state.active_tab == 'Aberturas'
+    assert any(s.value == 'Treine somente aberturas' for s in at.subheader)
+    assert any(b.label == 'Começar treino' for b in at.button)
 
 
 def test_ui_history_import():
@@ -213,6 +231,8 @@ def test_ui_history_import():
         assert not any(b.label == 'Abrir no tabuleiro para analisar' for b in at.button)
         at.session_state.requested_page = 'Análise'
         at.run(timeout=20)
+        from streamlit.util import calc_hash
+        at._page_hash = calc_hash('analise')
         at.selectbox(key='history_choice').set_value(0).run(timeout=60)
         assert not at.exception
         assert parse(at.session_state.game).headers['White'] == 'Demo'
@@ -226,7 +246,7 @@ def test_ui_missing_stockfish_is_explicit():
     assert not at.exception
     assert at.session_state.last_explanation == ''
     assert not at.session_state.jobs
-    click(at, 'Nova partida · jogar livremente')
+    click(at, 'Nova partida')
     click(at, 'Analisar Partida')
     assert not at.session_state.analysis_requested
     click(at, 'Iniciar análise')
@@ -234,14 +254,17 @@ def test_ui_missing_stockfish_is_explicit():
     assert not any('Ollama' in widget.label or 'engine' in widget.label for widget in at.text_input)
 
 
-def test_intro_preference_persists_without_losing_theme(tmp_path):
+def test_entrance_removed_even_with_legacy_preference_and_theme_persists(tmp_path):
+    # Uma preferência antiga não pode reativar a entrada retirada do aplicativo.
+    (tmp_path / 'appearance.json').write_text(
+        json.dumps({'intro_enabled': True, 'theme': 'Claro'}), encoding='utf-8')
     at = AppTest.from_file(str(ROOT / 'app.py')).run(timeout=20)
-    at.toggle(key='intro_enabled').set_value(False).run(timeout=20)
     assert not at.exception
+    assert all(widget.key != 'intro_enabled' for widget in at.toggle)
+    assert 'study_entrance' not in sys.modules
     at.segmented_control(key='theme_selector').set_value('☾ Escuro').run(timeout=20)
     assert not at.exception
     settings = json.loads((tmp_path / 'appearance.json').read_text(encoding='utf-8'))
-    assert settings['intro_enabled'] is False
     assert settings['theme'] == 'Escuro'
 
 

@@ -1,7 +1,7 @@
 """A oficina reage apenas a tentativas validadas pelo servidor."""
 import streamlit as st
 from pathlib import Path
-from study_entrance import asset_source
+from media_assets import asset_source
 
 
 _FORGE = st.components.v2.component(
@@ -12,9 +12,9 @@ _FORGE = st.components.v2.component(
     <div class="blade-meter"><span>Fio da lâmina</span><strong></strong></div>
     <progress max="100" value="0" aria-label="Fio da lâmina"></progress></section>''',
     css='''
-      .forge {border:1px solid var(--border);border-radius:24px;padding:20px;background:var(--surface);
-        color:var(--ink);font:15px/1.5 sans-serif;box-shadow:0 10px 28px #0001;margin-bottom:20px}
-      video {display:block;width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:16px;background:#101312}
+      .forge {border:1px solid var(--border);border-radius:14px;padding:20px;background:var(--surface);
+        color:var(--ink);font:15px/1.65 'Segoe UI',system-ui,sans-serif;margin-bottom:20px}
+      video {display:block;width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:9px;background:#111a16}
       .smith-comment {min-height:48px;margin:12px 0}
       .blade-meter {display:flex;justify-content:space-between;font-size:12px;color:var(--muted)}
       progress {width:100%;height:7px;appearance:none;border:0;border-radius:8px;overflow:hidden;background:var(--workshop)}
@@ -23,7 +23,7 @@ _FORGE = st.components.v2.component(
     ''',
     js='''export default function({data,parentElement}){
       const host=parentElement.host ?? parentElement,forge=parentElement.querySelector('.forge');
-      const palette=data.dark?['#202936','#f3f4f6','#c4cbd6','#566273','#18222b']:['#fffaf0','#202530','#505968','#b5a991','#e9e2d4'];
+      const palette=data.dark?['#1A2720','#EDF3ED','#ACBCAF','#354A3C','#223329']:['#FFFEFA','#202B26','#626F66','#D9DED5','#ECEFE8'];
       ['--surface','--ink','--muted','--border','--workshop'].forEach((key,i)=>host.style.setProperty(key,palette[i]));
       const motivation=[
         'Belo lance! Sua visão está ficando mais afiada a cada desafio.',
@@ -39,8 +39,12 @@ _FORGE = st.components.v2.component(
       if(parentElement._phraseEvent!==data.event){
         parentElement._phraseEvent=data.event;
         if(success && data.event>0){
-          const index=window.__forgePhraseIndex ?? 0;
-          parentElement._phrase=motivation[index%motivation.length];window.__forgePhraseIndex=index+1;
+          if(window.__forgePhrase?.event!==data.event){
+            const index=window.__forgePhraseIndex ?? 0;
+            window.__forgePhrase={event:data.event,text:motivation[index%motivation.length]};
+            window.__forgePhraseIndex=index+1;
+          }
+          parentElement._phrase=window.__forgePhrase.text;
         }
       }
       const comments={idle:'A forja está pronta. Resolva o tático para afiar sua espada.',
@@ -54,6 +58,7 @@ _FORGE = st.components.v2.component(
       forge.dataset.result=data.result;
       const video=parentElement.querySelector('video');
       if(!video.getAttribute('src')){video.src=data.source;video.poster=data.poster;}
+      if(!data.speak && 'speechSynthesis' in window)speechSynthesis.cancel();
       if(parentElement._forgeEvent===data.event)return;
       parentElement._forgeEvent=data.event;
       if(success && data.event>0 && data.speak && 'speechSynthesis' in window && window.__forgeSpoken!==data.event){

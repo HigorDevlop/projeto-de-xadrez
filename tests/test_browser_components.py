@@ -46,7 +46,8 @@ def mount(page, filename, data):
     page.add_script_tag(content=script + '''
       window.events=[];
       window.render=(data)=>window.componentRender({data,parentElement:document.querySelector('main'),
-        setTriggerValue:(key,value)=>window.events.push({key,value})});
+        setTriggerValue:(key,value)=>window.events.push({key,value}),
+        setStateValue:(key,value)=>window.events.push({key,value,persistent:true})});
     ''')
     page.evaluate('(data)=>window.render(data)', data)
 
@@ -99,6 +100,45 @@ def test_rejected_move_and_repeated_reset_do_not_freeze_drag(browser_page):
     page.evaluate('(data)=>window.render(data)', board_data(6))
     drag(page, 'd2', 'd4')
     page.wait_for_function('window.events.length===5')
+
+
+def test_training_recovers_a_missing_ack_without_resending_the_move(browser_page):
+    page = browser_page
+    data = {**board_data(), 'trainingMode': True, 'trainingExpected': 'e2e4', 'syncRecovery': True}
+    mount(page, 'interactive_board.py', data)
+    drag(page, 'a2', 'a3')
+    page.wait_for_function('window.events.length===1')
+    assert page.evaluate('window.events[0].persistent') is True
+    for _ in range(4):
+        # Ordinary refreshes while waiting must not accept a second move.
+        page.evaluate('(data)=>window.render(data)', data)
+        page.locator('[data-square=e2]').click()
+        page.locator('[data-square=e4]').click()
+    page.wait_for_function('window.events.some(event=>event.key==="sync")')
+    assert len([event for event in page.evaluate('window.events') if event['key'] == 'move']) == 1
+    assert page.evaluate('window.events.at(-1).value.revision') == 0
+    assert page.evaluate('window.events.at(-1).value.uci') == 'a2a3'
+    assert page.evaluate('window.events.at(-1).persistent') is True
+    page.evaluate('(data)=>window.render({...data,revision:1})', data)
+    assert page.locator('.drag-ghost').count() == 0
+    drag(page, 'e2', 'e4')
+    page.wait_for_function('window.events.filter(event=>event.key==="move").length===2')
+    assert page.evaluate('window.events.at(-1).value.revision') == 1
+    page.evaluate('(data)=>window.render({...data,revision:2})', data)
+    events = len(page.evaluate('window.events'))
+    page.wait_for_timeout(2200)
+    assert len(page.evaluate('window.events')) == events  # Recovery timer was disposed.
+
+
+def test_cancelled_visual_animation_does_not_block_another_drag(browser_page):
+    page = browser_page
+    mount(page, 'interactive_board.py', board_data())
+    page.evaluate("() => {Element.prototype.animate=()=>{throw new DOMException('cancelled','AbortError')}}")
+    drag(page, 'e2', 'e5')  # Illegal move, no event and no server rerender.
+    page.wait_for_timeout(100)
+    drag(page, 'e2', 'e4')
+    page.wait_for_function('window.events.length===1')
+    assert page.evaluate('window.events[0].value.uci') == 'e2e4'
 
 
 def test_native_picker_crop_cancel_and_replace(browser_page):
@@ -168,8 +208,8 @@ def test_all_arrows_update_positions_and_lessons_without_server_wait(browser_pag
     page.keyboard.press('ArrowRight')
     page.get_by_role('button', name='Posição inicial', exact=True).click()
     page.keyboard.press('ArrowRight')
-    page.wait_for_function('window.events.length>0')
-    page.wait_for_timeout(60)
+    page.wait_for_function('sequence => window.events.at(-1)?.value.sequence === sequence && window.events.at(-1)?.value.to === 1',
+                           arg=2*(len(frames)-1)+3)
     assert page.evaluate('window.events.at(-1).value.to') == 1
     # Explicitly selecting another game resets the local index and pending events.
     replacement = {**data, 'epoch': 'game-2', 'ply': 0}
@@ -353,8 +393,22 @@ def test_cat_peeks_enters_sits_and_rests_without_covering_board(browser_page, mo
     board = page.locator('.board').bounding_box()
     assert position['x'] >= board['x']+board['width'] or position['y'] >= board['y']+board['height']
     first = page.locator('canvas').evaluate('(c)=>c.toDataURL()')
+    page.locator('canvas').evaluate('(c)=>{window.restingTorso=c.getContext("2d").getImageData(0,0,480,260).data}')
     page.clock.run_for(900)
     assert page.locator('canvas').evaluate('(c)=>c.toDataURL()') != first
+    # Canvas GPU/CPU readback can round color channels differently. Compare
+    # visible (premultiplied) colors with a two-level tolerance, not exact bytes.
+    torso_difference = page.locator('canvas').evaluate('''(c)=>{
+      const before=window.restingTorso,after=c.getContext('2d').getImageData(0,0,480,260).data;
+      let difference=0;
+      for(let i=0;i<before.length;i+=4){
+        difference=Math.max(difference,Math.abs(before[i+3]-after[i+3]));
+        for(let channel=0;channel<3;channel++)difference=Math.max(difference,
+          Math.abs(before[i+channel]*before[i+3]-after[i+channel]*after[i+3])/255);
+      }
+      return difference;
+    }''')
+    assert torso_difference <= 2
     page.evaluate('()=>{document.querySelector("main")._catScene.pause();window.render({});}')
     page.clock.run_for(100)
     assert page.locator('canvas').bounding_box() == position

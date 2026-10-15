@@ -8,3 +8,5 @@ __pycache__/
 .server.pid
 .streamlit/appearance.json
 tests/artifacts/
+data/preparation/
+data/performance/

@@ -67,6 +67,21 @@ def fetch_games(username: str, month: str) -> list[dict]:
                   key=lambda g: g.get("end_time", 0), reverse=True)
 
 
+def fetch_dashboard_games(username: str, first_month: str, last_month: str) -> list[dict]:
+    """Fetch the calendar months covering the dashboard, without a game-count cap."""
+    if not all(re.fullmatch(r'\d{4}/(0[1-9]|1[0-2])', month) for month in (first_month, last_month)):
+        raise ValueError('Mês inválido.')
+    games, seen = [], set()
+    for month in fetch_archives(username):
+        if first_month <= month <= last_month:
+            for game in fetch_games(username, month):
+                identity = game.get('url') or game['pgn']
+                if identity not in seen:
+                    seen.add(identity)
+                    games.append(game)
+    return sorted(games, key=lambda game: game.get('end_time', 0), reverse=True)
+
+
 def fetch_recent_games(username: str, limit: int = 100, max_months: int = 12) -> list[dict]:
     """Fill one recent-games picker across months, without parallel API requests."""
     user = normalize_username(username)

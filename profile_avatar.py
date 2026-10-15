@@ -4,6 +4,7 @@ import base64
 import streamlit as st
 
 from profile_photo import normalize_photo
+from design_tokens import palette
 
 
 _AVATAR = st.components.v2.component(
@@ -17,20 +18,30 @@ _AVATAR = st.components.v2.component(
     <button class="cancel" type="button">Cancelar</button></div>
     <p class="error" role="alert"></p>''',
     css='''
-    .avatar {width:128px;height:128px;padding:0;overflow:hidden;cursor:pointer;
-      border:2px solid #9674d5;border-radius:12px;background:var(--surface);
-      color:var(--ink);font:48px sans-serif}
+    .avatar {display:block;width:72px;height:72px;max-width:100%;aspect-ratio:1;padding:0;overflow:hidden;cursor:pointer;
+      border:1px solid var(--border);border-radius:16px;background:var(--soft);
+      color:var(--accent);font:32px 'Segoe UI',system-ui,sans-serif;transition:border-color .15s}
+    .avatar:hover {border-color:var(--accent)}
+    button:focus-visible,input:focus-visible {outline:3px solid var(--accent);outline-offset:3px}
     .avatar img {display:block;width:100%;height:100%;object-fit:cover}
     .editor {position:fixed;top:15vh;left:50%;transform:translateX(-50%);width:372px;max-width:94vw;box-sizing:border-box;z-index:99999;
-      padding:16px;border-radius:16px;background:var(--surface);color:var(--ink);box-shadow:0 12px 60px #0008}
+      padding:24px;border:1px solid var(--border);border-radius:14px;background:var(--surface);color:var(--ink);
+      box-shadow:0 16px 48px #0004;font:14px/1.5 'Segoe UI',system-ui,sans-serif}
     canvas {width:100%;max-width:320px;touch-action:none;cursor:move;border-radius:8px}
-    .editor label {display:block;margin:8px 0}.editor button {padding:8px;margin:4px;border-radius:8px;background:var(--surface);color:var(--ink);border:1px solid #9674d5}
+    .editor label {display:block;margin:16px 0}.zoom {accent-color:var(--accent);width:100%;margin-top:8px}
+    .editor button {padding:10px 16px;margin:4px 6px 0 0;border-radius:8px;background:var(--surface);color:var(--ink);
+      border:1px solid var(--border);font:600 14px 'Segoe UI',system-ui,sans-serif;cursor:pointer}
+    .editor .save {background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+    .editor p {margin-top:0}
     .error {color:#dc2626;font-size:14px}
     ''',
     js='''
     export default function({data,parentElement,setTriggerValue}) {
-      (parentElement.host ?? parentElement).style.setProperty('--surface',data.dark?'#202936':'#fffaf0');
-      (parentElement.host ?? parentElement).style.setProperty('--ink',data.dark?'#f3f4f6':'#202530');
+      const theme=data.theme ?? (data.dark ?
+        {surface:'#1A2720',soft:'#223329',ink:'#EDF3ED',border:'#354A3C',accent:'#85C69A',accent_ink:'#12251A'} :
+        {surface:'#FFFEFA',soft:'#ECEFE8',ink:'#202B26',border:'#D9DED5',accent:'#176B4A',accent_ink:'#FFFFFF'});
+      for(const [token,value] of Object.entries(theme))
+        (parentElement.host ?? parentElement).style.setProperty('--'+token.replaceAll('_','-'),value);
       const q=s=>parentElement.querySelector(s);
       const avatar=q('.avatar'), input=q('.file'), editor=q('.editor'), canvas=q('canvas');
       if(parentElement._cropActive)return;
@@ -100,4 +111,4 @@ def avatar_changed():
 
 def profile_avatar(photo, dark=False):
     encoded = 'data:image/png;base64,' + base64.b64encode(photo).decode() if photo else None
-    return _AVATAR(data={'photo': encoded, 'dark': dark}, key='avatar_picker', on_photo_change=avatar_changed)
+    return _AVATAR(data={'photo': encoded, 'dark': dark, 'theme': palette(dark)}, key='avatar_picker', on_photo_change=avatar_changed)
