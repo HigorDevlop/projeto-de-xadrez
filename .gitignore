@@ -10,3 +10,17 @@ __pycache__/
 tests/artifacts/
 data/preparation/
 data/performance/
+data/book_positions/
+data/book_library.sqlite3*
+data/classrooms.sqlite3*
+data/desktop/*.json
+data/desktop/browser-profile/
+data/installation.json
+data/services.json
+
+# Previous engine executable retained locally for rollback.
+engines/backups/
+
+# Local installer build tools, clean staging and release artifacts.
+.build-tools/
+dist/

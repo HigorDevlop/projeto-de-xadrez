@@ -88,7 +88,7 @@ def test_engine_starts_only_after_all_book_positions_are_prepared():
             assert lookup.call_count == 4
             raise chess.engine.EngineError('expected failure')
         with patch('stockfish_analysis.Path.is_file', return_value=True), patch('chess.engine.SimpleEngine.popen_uci', side_effect=launch):
-            with pytest.raises(ValueError, match='executar o Stockfish'):
+            with pytest.raises(ValueError, match='executar o motor selecionado'):
                 analyse_with_books(game, 'stockfish', study=study)
 
 
@@ -118,14 +118,14 @@ def example(pgn='1. e4 e5 2. Nf3 *'):
         'references': {}}
 
 
-def test_rating_adjusts_only_productive_sacrifice_tolerance():
+def test_rating_does_not_excuse_loss_in_productive_sacrifice():
     args = dict(in_book=False, is_best=False, sacrifice=True, best_expected=.7,
                 played_expected=.685, second_expected=.65)
-    assert classify(**args, rating=800) == 'brilliant'
+    assert classify(**args, rating=800) == 'excellent'
     assert classify(**args, rating=2400) == 'excellent'
     assert classify(**{**args, 'sacrifice': False}, rating=800) == 'excellent'
     assert classify(**{**args, 'played_expected': .3}, rating=800) == 'blunder'
-    assert classify(**{**args, 'sacrifice': False, 'is_best': True, 'played_expected': .7, 'second_expected': .5}) == 'brilliant'
+    assert classify(**{**args, 'sacrifice': False, 'is_best': True, 'played_expected': .7, 'second_expected': .5}) == 'best'
 
 
 def test_pawn_offer_is_not_a_brilliant_piece_sacrifice():
@@ -169,6 +169,12 @@ def drain(at):
     assert not at.exception
 
 
+def request_analysis(at):
+    next(b for b in at.button if b.label == 'Analisar Partida').click().run(timeout=30)
+    next(b for b in at.button if b.label == 'Iniciar análise').click().run(timeout=30)
+    assert not at.exception
+
+
 def test_clicking_pgn_moves_uses_single_preloaded_batch(app_environment):
     game, payload = example()
     with patch('stockfish_analysis.analyse_with_books', return_value=payload) as request:
@@ -176,13 +182,14 @@ def test_clicking_pgn_moves_uses_single_preloaded_batch(app_environment):
         at.session_state.game = str(game)
         at.run(timeout=30)
         request.assert_not_called()
-        at.button(key='study_toggle').click().run(timeout=30)
+        request_analysis(at)
         drain(at)
         for ply in [3, 1, 2, 3, 1]:
             at.button(key=f'panel_{ply}').click().run(timeout=30)
             assert not at.exception
             assert at.session_state.ply == ply
-            assert payload['explanations'][ply] in at.session_state.last_explanation
+            assert at.session_state.explanations[ply] == payload['explanations'][ply]
+            assert not at.session_state.study_open
         assert request.call_count == 1
 
 
@@ -195,7 +202,7 @@ def test_analysis_waits_for_selected_depth_and_hides_machine_list(app_environmen
         at.run(timeout=30)
         next(b for b in at.button if b.label == 'Analisar Partida').click().run(timeout=30)
         request.assert_not_called()
-        at.radio(key='analysis_depth').set_value(quality)
+        at.segmented_control(key='analysis_depth').set_value(quality)
         next(b for b in at.button if b.label == 'Iniciar análise').click().run(timeout=30)
         drain(at)
         assert request.call_args.args[5] == quality
@@ -205,7 +212,7 @@ def test_analysis_waits_for_selected_depth_and_hides_machine_list(app_environmen
 
 def test_changing_uploaded_books_rebuilds_explanations(app_environment):
     game, payload = example()
-    def analyse(*args):
+    def analyse(*args, **kwargs):
         study = args[4]
         board = game.board()
         board.push_san('e4')
@@ -215,16 +222,19 @@ def test_changing_uploaded_books_rebuilds_explanations(app_environment):
         at = analysis_app()
         at.session_state.game = str(game)
         at.session_state.study_files = (('primeiro.txt', b'Control the center and develop your pieces.'),)
-        at.session_state.study_open = True
         at.run(timeout=30)
+        request_analysis(at)
         drain(at)
         at.button(key='panel_1').click().run(timeout=30)
-        assert 'primeiro.txt' in at.session_state.last_explanation
+        assert 'primeiro.txt' in at.session_state.explanations[1]
         at.session_state.study_files = (('segundo.txt', b'Central control gives your pieces room to develop.'),)
         at.run(timeout=30)
+        assert evaluate.call_count == 1
+        assert not at.session_state.analysis_requested
+        request_analysis(at)
         drain(at)
-        assert 'segundo.txt' in at.session_state.last_explanation
-        assert 'primeiro.txt' not in at.session_state.last_explanation
+        assert 'segundo.txt' in at.session_state.explanations[1]
+        assert 'primeiro.txt' not in at.session_state.explanations[1]
         assert evaluate.call_count == 2
 
 
@@ -233,18 +243,17 @@ def test_late_response_cannot_replace_another_game(app_environment):
     game, payload = example()
     at = analysis_app()
     at.session_state.game = str(game)
-    at.session_state.study_open = True
     original = Future()
     replacement = Future()
     class Pool:
         def __init__(self):
             self.calls = 0
-        def submit(self, *args):
+        def submit(self, *args, **kwargs):
             self.calls += 1
             return original if self.calls == 1 else replacement
     with patch('concurrent.futures.ThreadPoolExecutor', return_value=Pool()):
         at.run(timeout=30)
-        old_key = at.session_state.jobs['full'][0]
+        request_analysis(at)
         assert at.session_state.jobs['full'][1] is original
         original.set_running_or_notify_cancel()
         at.button(key='panel_1').click().run(timeout=30)
@@ -303,3 +312,21 @@ def test_tactics_load_automatically_and_restart_without_network(app_environment,
             drain(at)
         assert at.session_state.puzzle_request[1:3] == (700, 900)
         assert len(at.session_state.puzzle_buffer) == 2
+
+
+def test_engine_choice_is_submitted_with_analysis_and_preserved_when_hidden(app_environment):
+    from engine_catalog import find_berserk
+    game,payload=example()
+    with patch('stockfish_analysis.analyse_with_books',return_value=payload) as request:
+        at=analysis_app();at.session_state.game=str(game);at.run(timeout=30)
+        next(b for b in at.button if b.label=='Analisar Partida').click().run(timeout=30)
+        at.selectbox(key='analysis_engine').select('Berserk').run(timeout=30)
+        request.assert_not_called()
+        next(b for b in at.button if b.label=='Iniciar análise').click().run(timeout=30)
+        drain(at)
+        assert request.call_args.args[1]==find_berserk()
+        assert at.session_state.review_engine=='Berserk'
+        assert not at.session_state.analysis_options_open
+        next(b for b in at.button if b.label=='Analisar Partida').click().run(timeout=30)
+        assert at.selectbox(key='analysis_engine').value=='Berserk'
+        request.assert_called_once()

@@ -39,10 +39,7 @@ _COURSES = (
         'e4 e5 Nf3 Nc6 Bc4 Bc5 c3 Nf6 d3 d6 O-O',
         'e4 e5 Nf3 Nc6 Bc4 Nf6 d3 Bc5 c3 d6 O-O',
         'e4 e5 Nf3 Nc6 Bc4 Nd4 Nxd4 exd4 O-O',
-        'e4 e5 Nf3 d6 d4 exd4 Nxd4 Nf6 Nc3',
-        'e4 c5 Nf3 d6 d4 cxd4 Nxd4',
-        'e4 e6 d4 d5 exd5 exd5 Bd3',
-        'e4 c6 d4 d5 exd5 cxd5 Bd3',
+        'e4 e5 Nf3 Nc6 Bc4 Be7 d4 exd4 Nxd4 Nf6 Nc3',
     )),
     ('caro', 'Caro-Kann', 'black_e4', 'e4 c6', (
         'e4 c6 d4 d5 e5 Bf5 Nf3 e6 Be2 c5',
@@ -136,8 +133,9 @@ def catalog():
             board.push_san(san)
         result.append({'id': key, 'title': title, 'group': group, 'side': side,
                        'fen': board.fen(), 'notation': _notation(preview), 'lines': lines})
-    from opening_reference_catalog import extra_courses
-    return tuple(result + extra_courses(result))
+    from opening_reference_catalog import extra_courses, expand_course
+    from opening_curriculum import build_curriculum
+    return tuple(build_curriculum(expand_course(course)) for course in result + extra_courses(result))
 
 
 def _notation(text):

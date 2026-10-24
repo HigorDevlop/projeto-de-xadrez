@@ -49,7 +49,7 @@ _DEMO = st.components.v2.component(
       .caption {grid-column:2;margin:12px 0 3px;font-weight:600}
       small {grid-column:2;color:var(--muted)}
       button {grid-column:2;justify-self:start;margin-top:20px;border:1px solid var(--muted);border-radius:9px;padding:9px 16px;
-        color:var(--ink);background:transparent;cursor:pointer}
+        color:var(--ink);background:transparent;cursor:var(--club-cursor-link,pointer)}
       @media(max-width:640px){.tactic-demo{display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px}.demo-board{order:3;width:min(100%,330px)}.caption{order:4}small{order:5}button{order:6}}
     ''',
     js='''export default function({data,parentElement}) {

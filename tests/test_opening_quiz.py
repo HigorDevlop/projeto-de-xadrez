@@ -25,7 +25,8 @@ def test_preloaded_frames_match_every_legal_question():
     assert len(data['positions']) == len(session['quiz_queue'])
     for ply, frame in data['positions'].items():
         board = chess.Board()
-        for uci in current_line(plan, session)['moves'][:int(ply)]:
+        question=session['quiz_bank'][ply] if session.get('quiz_bank') else dict(line=current_line(plan,session),ply=int(ply))
+        for uci in question['line']['moves'][:question['ply']]:
             board.push_uci(uci)
         assert frame['fen'] == board.fen()
         assert frame['trainingExpected'] in frame['legal']
@@ -55,11 +56,14 @@ def test_wrong_answer_and_hint_preserve_retry_rules():
     revision = session['revision']
     assert receive_move(plan, event(plan, session, wrong), 100)
     assert session['revision'] == revision + 2
-    assert session['phase'] == 'answer' and session['quiz_queue'] == original
+    assert session['phase'] == 'answer' and session['quiz_queue'][0] == original[1]
+    assert session['quiz_states'][str(original[0])] == 'wrong'
     assert session['line_id'] in session['failed']
     assert request_hint(plan, session)
+    assisted_ply = session.get('quiz_key',session['ply'])
     assert receive_move(plan, event(plan, session), 100)
-    assert original[0] in session['quiz_retry']
+    assert assisted_ply in session['quiz_queue']
+    assert session['quiz_states'][str(assisted_ply)] == 'unknown'
 
 
 from test_browser_components import browser_page, mount
@@ -106,7 +110,8 @@ import pytest
 
 
 @pytest.mark.parametrize('identifier', ['italian', 'caro'])
-def test_learner_and_opponent_move_in_same_browser_event(browser_page, identifier):
+@pytest.mark.parametrize('input_method', ['click', 'drag'])
+def test_learner_and_opponent_move_in_same_browser_event(browser_page, identifier, input_method):
     from opening_quiz import line_data
     from opening_course_state import settle_immediate
     from interactive_board import position_data, piece_images
@@ -125,14 +130,19 @@ def test_learner_and_opponent_move_in_same_browser_event(browser_page, identifie
     for index in range(2):
         ply = frames['current'] + index * 2
         frame = frames['positions'][str(ply)]
-        result = page.evaluate("""uci=>{
+        if input_method == 'drag':
+            from test_browser_components import drag
+            drag(page, frame['trainingExpected'][:2], frame['trainingExpected'][2:])
+        result = page.evaluate("""({uci,method})=>{
             const root=document.querySelector('main'), squares=[...document.querySelectorAll('.square')];
-            document.querySelector('[data-square='+uci.slice(0,2)+']').click();
-            document.querySelector('[data-square='+uci.slice(2,4)+']').click();
+            if(method==='click'){
+              document.querySelector('[data-square='+uci.slice(0,2)+']').click();
+              document.querySelector('[data-square='+uci.slice(2,4)+']').click();
+            }
             return {revision:root._acervoState.status().revision,pending:root._acervoState.status().pending,
               same:squares.every((node,i)=>node===document.querySelectorAll('.square')[i]),
               expected:root._acervoState.status().legal};
-        }""", frame['trainingExpected'])
+        }""", dict(uci=frame['trainingExpected'],method=input_method))
         assert result['revision'] == f"{session['token']}:{session['revision'] + 3*(index+1)}"
         assert not result['pending'] and result['same']
         assert result['expected'] == frames['positions'][str(ply+2)]['legal']

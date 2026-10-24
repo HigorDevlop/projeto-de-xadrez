@@ -72,9 +72,9 @@ def test_course_trail_training_quiz_and_persistence(browser_page,course_server,w
     page.set_viewport_size(dict(width=width,height=900))
     page.goto(url+('?theme=dark' if dark else ''))
     page.locator('[data-id=italian]').click()
-    expect(page.get_by_role('heading',name='Italiana',exact=True)).to_be_visible()
-    expect(page.locator('.node')).to_have_count(7)
-    assert page.locator('.node:disabled').count()==6
+    expect(page.get_by_role('heading',name='Italian Game',exact=True)).to_be_visible()
+    expect(page.locator('.node')).to_have_count(50)
+    assert page.locator('.node:disabled').count()==49
     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
     artifacts=ROOT/'tests/artifacts'
     artifacts.mkdir(exist_ok=True)
@@ -95,11 +95,17 @@ def test_course_trail_training_quiz_and_persistence(browser_page,course_server,w
         if any(item['learned'] for item in saved(folder)['practice_progress'].values()):
             break
         session = current(folder)
+        if session.get('ui_checkpoint'):
+            page.get_by_role('button',name='Continuar',exact=True).click()
+            expect(page.locator('.board')).not_to_have_attribute('data-revision', f"{session['token']}:{session['revision']}")
+            continue
         if session['phase'] == 'answer':
-            assert page.locator('.board').evaluate('''board =>
-                board === window.lessonBoard &&
-                window.lessonSquares.every((node, index) => node === board.children[index]) &&
-                document.querySelector('#fixture-runs').dataset.runs === window.lessonRuns''')
+            stability=page.locator('.board').evaluate('''board => ({
+                board:board === window.lessonBoard,
+                squares:window.lessonSquares.every((node, index) => node === board.children[index]),
+                runs:document.querySelector('#fixture-runs').dataset.runs,
+                expectedRuns:window.lessonRuns})''')
+            assert stability['board'] and stability['squares'] and stability['runs']==stability['expectedRuns'],(stability,session['mode'],session['ply'])
             from opening_training_state import expected_move
             uci = expected_move(saved(folder), session)
             if page.locator('.board').get_attribute('data-revision') != f"{session['token']}:{session['revision']}":
@@ -114,7 +120,11 @@ def test_course_trail_training_quiz_and_persistence(browser_page,course_server,w
             page.wait_for_timeout(350)
     else:
         pytest.fail('A linha não concluiu automaticamente')
-    # The next line begins automatically; returning preserves the new progress.
+    # Completion and its reward are acknowledged before the next line.
+    page.get_by_role('button',name='Continuar',exact=True).click()
+    expect(page.get_by_role('heading',name='Você salvou seu streak!',exact=True)).to_be_visible()
+    page.get_by_role('button',name='Continuar',exact=True).click()
+    expect(page.locator('.training-hint')).to_have_count(1)
     deadline = time.monotonic() + 15
     while current(folder)['line_id'] == first_line and time.monotonic() < deadline:
         page.wait_for_timeout(100)
@@ -122,15 +132,17 @@ def test_course_trail_training_quiz_and_persistence(browser_page,course_server,w
     expect(page.locator('.board')).to_be_visible()
     page.get_by_role('button',name='Voltar ao curso').click()
     expect(page.locator('.course-trail')).to_be_visible()
-    assert page.locator('.node:disabled').count()==5
+    assert page.locator('.node:disabled').count()==48
 
     assert sum(p['learned'] for p in saved(folder)['practice_progress'].values())==1
-    page.get_by_text('Dominar',exact=True).click()
-    expect(page.get_by_role('button',name='Revisar agora',exact=True)).to_be_visible()
-    page.get_by_text('Aprofundar',exact=True).click()
-    expect(page.get_by_text('Explore cada variação e seus lances. A exploração não altera seu domínio.',exact=True)).to_be_visible()
+    page.get_by_role('radio',name='Curso',exact=True).click()
+    expect(page.get_by_role('button',name='Revisar posições aprendidas',exact=True)).to_be_visible()
+    page.get_by_role('radio',name='Variações',exact=True).click()
+    page.locator('.st-key-opening_course summary').filter(has_text='Linha 1').first.click()
+    expect(page.get_by_role('button',name='Explorar no tabuleiro',exact=True).first).to_be_visible()
     page.get_by_role('button',name='Todas as aberturas').click()
     page.locator('[data-id=caro]').click()
+    page.get_by_role('radio',name='Curso',exact=True).click()
     page.get_by_role('button',name='Treinar',exact=True).click()
     expect(page.locator('.board')).to_be_visible()
     wait_phase(page,folder,('answer',))
@@ -138,14 +150,15 @@ def test_course_trail_training_quiz_and_persistence(browser_page,course_server,w
     page.get_by_role('button',name='Voltar ao curso').click()
     page.get_by_role('button',name='Todas as aberturas').click()
     page.locator('[data-id=italian]').click()
-    expect(page.get_by_role('heading',name='Italiana',exact=True)).to_be_visible()
+    expect(page.get_by_role('heading',name='Italian Game',exact=True)).to_be_visible()
+    page.get_by_role('radio',name='Curso',exact=True).click()
     expect(page.locator('.course-trail')).to_be_visible()
     assert sum(p['learned'] for p in saved(folder)['practice_progress'].values())==1
     page.reload()
     expect(page.locator('.home')).to_be_visible()
     page.locator('[data-id=italian]').click()
     expect(page.locator('.course-trail')).to_be_visible()
-    assert page.locator('.node:disabled').count()==5
+    assert page.locator('.node:disabled').count()==48
 
 
 def test_dark_mobile_course_has_readable_rank(browser_page,course_server):
@@ -155,9 +168,9 @@ def test_dark_mobile_course_has_readable_rank(browser_page,course_server):
     page.set_viewport_size(dict(width=390,height=900))
     page.goto(url+'?theme=dark')
     page.locator('[data-id=italian]').click()
-    expect(page.locator('.node')).to_have_count(7)
-    colors = page.locator('.opening-rank').evaluate('''element => ({
-        background: getComputedStyle(element).backgroundColor,
+    expect(page.locator('.node')).to_have_count(50)
+    colors = page.locator('.reference-rank').evaluate(r'''element => ({
+        background: getComputedStyle(element).backgroundImage.match(/rgb[(][^)]*[)]/)[0],
         foreground: getComputedStyle(element.querySelector('strong')).color
     })''')
     def luminance(rgb):

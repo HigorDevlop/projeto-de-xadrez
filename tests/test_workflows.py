@@ -189,7 +189,7 @@ def test_ui_free_play_and_navigation():
     at = AppTest.from_file(str(ROOT / 'app.py')).run(timeout=20)
     assert not at.exception
     assert not any(s.value == 'Leitura do lance' for s in at.subheader)
-    click(at, 'Nova partida')
+    click(at, 'Nova partida · jogar livremente')
     assert not any(s.label == 'Lance legal (SAN)' for s in at.selectbox)
     assert at.session_state.ply == 0
     assert not any(button.label in {'Início', 'Anterior', 'Próximo', 'Final'} for button in at.button)
@@ -213,8 +213,8 @@ def test_openings_page_is_available_from_main_navigation(tmp_path, monkeypatch):
     at.run(timeout=20)
     assert not at.exception
     assert at.session_state.active_tab == 'Aberturas'
-    assert any(s.value == 'Treine somente aberturas' for s in at.subheader)
-    assert any(b.label == 'Começar treino' for b in at.button)
+    assert not at.session_state.openings_active
+    assert at.session_state.openings_catalog
 
 
 def test_ui_history_import():
@@ -246,7 +246,7 @@ def test_ui_missing_stockfish_is_explicit():
     assert not at.exception
     assert at.session_state.last_explanation == ''
     assert not at.session_state.jobs
-    click(at, 'Nova partida')
+    click(at, 'Nova partida · jogar livremente')
     click(at, 'Analisar Partida')
     assert not at.session_state.analysis_requested
     click(at, 'Iniciar análise')
@@ -254,7 +254,7 @@ def test_ui_missing_stockfish_is_explicit():
     assert not any('Ollama' in widget.label or 'engine' in widget.label for widget in at.text_input)
 
 
-def test_entrance_removed_even_with_legacy_preference_and_theme_persists(tmp_path):
+def test_entrance_removed_and_dark_theme_used_even_with_legacy_preferences(tmp_path):
     # Uma preferência antiga não pode reativar a entrada retirada do aplicativo.
     (tmp_path / 'appearance.json').write_text(
         json.dumps({'intro_enabled': True, 'theme': 'Claro'}), encoding='utf-8')
@@ -262,13 +262,11 @@ def test_entrance_removed_even_with_legacy_preference_and_theme_persists(tmp_pat
     assert not at.exception
     assert all(widget.key != 'intro_enabled' for widget in at.toggle)
     assert 'study_entrance' not in sys.modules
-    at.segmented_control(key='theme_selector').set_value('☾ Escuro').run(timeout=20)
-    assert not at.exception
-    settings = json.loads((tmp_path / 'appearance.json').read_text(encoding='utf-8'))
-    assert settings['theme'] == 'Escuro'
+    assert at.session_state.theme_mode == 'Escuro'
+    assert at.session_state.background_mode == 'Escuro'
 
 
-def test_forge_rewards_only_clean_unique_exercises_and_advances_from_buffer():
+def test_forge_rewards_only_clean_unique_exercises_and_advances_from_buffer(monkeypatch):
     import ast
     from dataclasses import replace
     from types import SimpleNamespace
@@ -282,7 +280,9 @@ def test_forge_rewards_only_clean_unique_exercises_and_advances_from_buffer():
     tree = ast.parse((ROOT / 'app.py').read_text(encoding='utf-8'))
     callbacks = ast.Module(body=[n for n in tree.body if isinstance(n,ast.FunctionDef)
         and n.name in {'puzzle_changed','advance_puzzle','reset_puzzle'}], type_ignores=[])
-    namespace = {'st': SimpleNamespace(session_state=state), 'solve_move': solve_move}
+    monkeypatch.setattr('classroom_ui.training_token', lambda:None)
+    namespace = {'st': SimpleNamespace(session_state=state), 'solve_move': solve_move,
+                 'classroom':SimpleNamespace(identity=lambda token:None)}
     exec(compile(callbacks,'app.py','exec'), namespace)
     def attempt(uci, revision=None):
         state.puzzle_board = SimpleNamespace(move={'uci':uci,'fen':state.puzzle.fen,

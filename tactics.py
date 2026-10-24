@@ -1,4 +1,4 @@
-"""On-demand public Lichess puzzles, with server-side solution validation."""
+"""Offline puzzle selection and legal solution validation; optional online tools."""
 from dataclasses import dataclass
 from io import StringIO
 import json
@@ -28,6 +28,21 @@ class Puzzle:
     rating: int
     themes: tuple[str, ...]
     last_move: str | None = None
+
+
+def parse_database_row(row):
+    """The database starts before the opponent's setup move, unlike the API."""
+    try:
+        board=chess.Board(row['FEN']);moves=row['Moves'].split()
+        if len(moves)<2 or not board.is_valid():raise ValueError('Posição inválida')
+        for index,uci in enumerate(moves):
+            move=chess.Move.from_uci(uci)
+            if move not in board.legal_moves:raise ValueError('Solução ilegal')
+            board.push(move)
+            if index==0:fen=board.fen()
+        return Puzzle(row['PuzzleId'],fen,tuple(moves[1:]),int(row['Rating']),tuple(row['Themes'].split()),moves[0])
+    except (KeyError,ValueError,TypeError) as error:
+        raise ValueError('Registro inválido no banco de táticos.') from error
 
 
 def parse_puzzle(data: dict) -> Puzzle:
@@ -88,6 +103,12 @@ def solve_move(puzzle: Puzzle, progress: int, uci: str, fen: str):
     if fen != board.fen() or progress >= len(puzzle.solution):
         raise ValueError("A posição mudou. Tente novamente no tabuleiro atual.")
     if uci != puzzle.solution[progress]:
+        if progress+1==len(puzzle.solution):
+            try:move=chess.Move.from_uci(uci)
+            except ValueError:move=None
+            if move in board.legal_moves:
+                board.push(move)
+                if board.is_checkmate():return progress+1,'Tático resolvido!'
         return progress, "Ainda não é a continuação da solução. Procure outra ideia."
     progress += 1
     if progress < len(puzzle.solution):
@@ -95,7 +116,7 @@ def solve_move(puzzle: Puzzle, progress: int, uci: str, fen: str):
     return progress, "Tático resolvido!" if progress == len(puzzle.solution) else "Correto! O adversário respondeu; continue."
 
 
-def fetch_puzzle_range(theme, minimum, maximum, exclude_id=None):
+def fetch_online_puzzle_range(theme, minimum, maximum, exclude_id=None):
     """Bounded sampling, never present an out-of-range exercise as a match.
 
     Lichess only supports relative difficulty (anonymous reference: 1500).
@@ -114,6 +135,11 @@ def fetch_puzzle_range(theme, minimum, maximum, exclude_id=None):
                 and (theme == 'mix' or theme in puzzle.themes)):
             return puzzle
     raise ValueError("Nenhum tático dessa faixa foi encontrado nesta busca. Amplie a faixa ou tente novamente.")
+
+
+def fetch_puzzle_range(theme, minimum, maximum, exclude_id=None):
+    from offline_tactics import select_puzzle
+    return select_puzzle(theme,minimum,maximum,exclude_id)
 
 
 def fetch_puzzle_pair(theme, minimum, maximum):

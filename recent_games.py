@@ -89,6 +89,8 @@ def cards_data(history, username, estimates):
 _RECENT = st.components.v2.component(
     'recent_chesscom_games', html='<section class="recent-grid" aria-label="Últimas oito partidas do Chess.com"></section><nav class="recent-pages" aria-label="Páginas de partidas"></nav>',
     css='''
+    article{background:linear-gradient(150deg,#242424,#1c1c1c 45%,#181818)!important;border-color:#383838!important;box-shadow:inset 0 1px 0 #ffffff0d,inset 0 -1px 0 #00000040,0 3px 8px #00000040,0 12px 24px #0000001f}
+
     .recent-grid {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:20px;color:var(--ink);font-family:'Segoe UI',system-ui,sans-serif}
     article {padding:18px;background:var(--surface);border:1px solid var(--border);border-radius:14px;min-width:0;
       transition:border-color .15s;display:flex;flex-direction:column}
@@ -96,16 +98,16 @@ _RECENT = st.components.v2.component(
     .game-number {font-size:10px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;color:var(--gold);margin:0 0 10px}
     h3 {font:600 15px/1.45 'Segoe UI',system-ui,sans-serif;margin:0 0 5px;overflow-wrap:anywhere}
     .date {font-size:11px;line-height:1.5;color:var(--muted);min-height:18px;margin:0 0 16px}
-    .mini-board {display:block;width:100%;padding:0;border:0;background:none;cursor:pointer}
+    .mini-board {display:block;width:100%;padding:0;border:0;background:none;cursor:var(--club-cursor-link,pointer)}
     .mini-board svg {display:block;width:100%;height:auto;border-radius:4px}
     .accuracy {font-size:13px;font-weight:600;line-height:1.6;margin:14px 0;min-height:40px}
     .actions {display:flex;gap:8px;flex-wrap:wrap;margin-top:auto;padding-top:12px;border-top:1px solid var(--border)}
     .actions button {border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--ink);padding:9px 8px;
-      cursor:pointer;flex:1;font:600 12px 'Segoe UI',system-ui,sans-serif;transition:background .15s}
+      cursor:var(--club-cursor-link,pointer);flex:1;font:600 12px 'Segoe UI',system-ui,sans-serif;transition:background .15s}
     .actions button:last-child {background:var(--accent-soft);color:var(--accent);border-color:transparent}
     .actions button:hover:not(:disabled) {background:var(--soft)}
     button:focus-visible {outline:3px solid var(--accent);outline-offset:3px}
-    article.empty {opacity:.6}button:disabled {cursor:default}
+    article.empty {opacity:.6}button:disabled {cursor:var(--club-cursor-default,default)}
     .error {font-size:12px;line-height:1.5;color:#B85B42}
     @media(max-width:1050px){.recent-grid {grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}}
     @media(max-width:450px){article{padding:10px}h3{font-size:13px}.game-number{font-size:9px;margin-bottom:7px}
@@ -123,14 +125,14 @@ _RECENT = st.components.v2.component(
     .recent-grid.short article{padding:6px}
     .recent-grid.short .accuracy{margin:4px 0;font-size:10px}
     .recent-pages{display:flex;justify-content:center;gap:8px;margin-top:8px}
-    .recent-pages:empty{display:none}.recent-pages button{background:var(--surface);color:var(--ink);border:1px solid var(--border);border-radius:6px;padding:6px 12px;cursor:pointer}
+    .recent-pages:empty{display:none}.recent-pages button{background:var(--surface);color:var(--ink);border:1px solid var(--border);border-radius:6px;padding:6px 12px;cursor:var(--club-cursor-link,pointer)}
     .recent-pages button[aria-current=page]{background:var(--accent-soft)}
     @media(prefers-reduced-motion:reduce){article,.actions button{transition:none}}
     ''',
     js='''export default function({data,parentElement,setTriggerValue}) {
       const host=parentElement.host ?? parentElement;
       const theme=data.theme ?? (data.dark ?
-        {surface:'#1A2720',soft:'#223329',ink:'#EDF3ED',muted:'#ACBCAF',border:'#354A3C',accent:'#85C69A',accent_soft:'#263E30',gold:'#CFB780'} :
+        {surface:'#121212',soft:'#1d1d1d',ink:'#f5f5f5',muted:'#a3a3a3',border:'#2b2b2b',accent:'#ff8000',accent_soft:'#332011',gold:'#c7c7c7'} :
         {surface:'#FFFEFA',soft:'#ECEFE8',ink:'#202B26',muted:'#626F66',border:'#D9DED5',accent:'#176B4A',accent_soft:'#E3EFE6',gold:'#8A6A35'});
       for(const [token,value] of Object.entries(theme))host.style.setProperty('--'+token.replaceAll('_','-'),value);
       const grid=parentElement.querySelector('.recent-grid'),pager=parentElement.querySelector('.recent-pages');

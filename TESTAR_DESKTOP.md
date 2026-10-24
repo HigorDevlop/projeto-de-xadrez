@@ -1,12 +1,14 @@
-# Como testar a versão desktop
+![alt text](image.png)# Como testar a versão desktop
 
 ## 1. Abrir
 
-1. Na pasta do projeto, dê dois cliques em **Acervo Desktop.bat**. Você também pode usar o atalho **Acervo Desktop** da Área de Trabalho.
-2. Aguarde a janela abrir em **Aberturas**. Se já estiver aberta com o visual antigo, pressione **Ctrl + R**.
-3. Maximize a janela. A tela deve mostrar **LotusChess PRO**, as fileiras **Aberturas de Brancas** e **Aberturas de Negras**, cartões cinza e tabuleiros bege e marrom.
+1. Na pasta do projeto, dê dois cliques em **Coach Chess Desktop.bat**. Você também pode usar o atalho **Coach Chess** da Área de Trabalho.
+2. Aguarde a janela abrir em **Aberturas**. Para carregar também o novo tema global, feche a janela antiga e abra novamente pelo inicializador.
+3. Maximize a janela. A tela deve mostrar **Coach Chess PRO**, as fileiras **Aberturas de Brancas** e **Aberturas de Negras**, cartões cinza e tabuleiros bege e marrom.
 
 Se precisar preparar as dependências em outro computador, execute **iniciar.bat** uma vez antes de abrir a versão desktop. Nesta instalação, as dependências já estão disponíveis.
+
+A navegação lateral mostra somente **Análise** e **Aberturas**. O modo Preparo permanece preservado no código, mas oculto do menu. Todas as telas usam o tema preto e o ícone principal é preto e branco.
 
 ## 2. Conferir catálogo e curso
 
@@ -19,13 +21,15 @@ O catálogo separa o lado que você treina. Por exemplo, Sicilian Defense aparec
 
 ## 3. Testar os lances, o erro e a revisão
 
-1. Siga a seta verde: clique na peça e na casa de destino, ou arraste a peça.
-2. A resposta do adversário aparece automaticamente. Continue jogando os seus lances.
-3. Para testar um erro, faça um lance legal diferente do indicado. A seta vermelha mostra a tentativa, e a verde mostra o lance da linha. Clique em **Próximo** e corrija.
-4. Ao terminar a primeira passagem, clique em **Continuar**. Agora repita os lances de memória.
-5. Se precisar, use **Não sei**. A posição será revisada novamente antes da conclusão.
-6. Continue até a revisão com os quatro contadores: **A FAZER / ERRO / NÃO SEI / CERTO**.
-7. Ao aparecer **Bom trabalho!**, clique em **Continuar**. A conclusão registra a atividade do dia e libera a próxima linha. A conquista da medalha aparece quando você atinge a meta de posições do curso.
+1. Ao clicar em **Treinar**, todas as posições da linha começam em **A Fazer**. Os contadores aparecem na ordem **A Fazer / Erro / Não Sei / Certo**.
+2. Clique na peça e na casa de destino, ou arraste a peça. Um acerto de primeira manda a posição diretamente para **Certo**.
+3. Para testar um erro, faça um lance legal diferente do lance da linha. A posição passa para **Erro**, e o treino avança imediatamente para outra posição, sem exigir **Próximo**.
+4. A posição errada reaparece em um ponto aleatório da fila. Acerte: ela passa de **Erro** para **Não Sei** e volta à fila.
+5. Acerte novamente quando ela reaparecer: agora ela passa de **Não Sei** para **Certo**. Se você errar em qualquer tentativa, ela volta a **Erro** e precisa novamente de dois acertos sem ajuda.
+6. **Não sei** revela a seta. Um lance feito com ajuda não conta como acerto de recuperação. A posição continua na fila para uma tentativa sem ajuda.
+7. Quando todas as posições estiverem em **Certo**, aparece **Bom trabalho!**. Clique em **Continuar** para registrar a conclusão e avançar.
+
+Se quiser estudar os lances antes de testar a memória, use **Aprender com setas** no curso. Esse modo guiado mantém as explicações e as passagens de aprendizado separadas do treino com fila aleatória.
 
 **Pausar treino** interrompe a interação sem perder a posição. **Retomar treino** libera o tabuleiro. A lupa **Analisar posição** mostra a avaliação local e o lance da linha.
 
@@ -42,7 +46,7 @@ Os arquivos de progresso ficam em **data/preparation/openings/**. Mantenha a mes
 
 - **Variações:** mostra os lances e permite explorá-los no tabuleiro sem alterar o progresso do curso.
 - **Armadilhas:** mostra as armadilhas encontradas no catálogo local para aquela abertura. Algumas aberturas não têm armadilhas cadastradas.
-- **Perfil:** mostra o gráfico e as taxas de vitória do histórico carregado. Se ainda não houver partidas, a tela informa isso. Para carregar sua conta, entre por **Partidas → Minha conta**, no menu lateral.
+- **Perfil:** mostra o gráfico e as taxas de vitória do histórico carregado. Se ainda não houver partidas, a tela informa isso. Para carregar sua conta, entre por **Minha conta**, no menu lateral.
 - **Finais:** oferece três exercícios jogáveis de mate em um lance, incluindo promoção.
 - **Partidas** e **Puzzles:** abrem as áreas já existentes do aplicativo.
 

@@ -101,6 +101,7 @@ def test_delayed_and_out_of_order_acknowledgments_never_rewind_board(browser_pag
 
 def test_external_control_flushes_cursor_and_new_game_cancels_pending_sync(browser_page):
     page = browser_page
+    page.clock.install()
     data = navigation_data()
     mount(page, 'interactive_board.py', data)
     page.evaluate('''() => {
@@ -119,7 +120,7 @@ def test_external_control_flushes_cursor_and_new_game_cancels_pending_sync(brows
     assert page.evaluate('window.events.at(-1).value.to') == 6
     page.evaluate('document.querySelector("[data-nav=next]").click()')
     page.evaluate('(data) => window.render(data)', {**data, 'epoch': 'another-game'})
-    page.wait_for_timeout(450)
+    page.clock.run_for(450)
     assert page.evaluate('window.events.length') == 1
     assert page.locator('.move-counter').inner_text() == f'Lance 0 de {data["total"]}'
 

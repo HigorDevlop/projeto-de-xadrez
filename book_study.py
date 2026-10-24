@@ -136,8 +136,8 @@ def explain_from_books(board, study, review=None, references=None):
     else:
         paragraphs.extend(position_facts(board)[:2])
     if review:
-        paragraphs.append(f'Pela avaliação do Stockfish, {review.san} é classificado como {CATEGORIES[canonical_category(review.category)].label}, '
-                          f'com perda de {review.expected_loss:.1%} dos pontos esperados.')
+        paragraphs.append(f'Pela avaliação do {review.engine_name}, {review.san} é classificado como {CATEGORIES[canonical_category(review.category)].label}, '
+                          f'com perda de {review.expected_loss * 100:.1f} pontos percentuais no indicador de chances.')
         if not board.is_game_over() and review.line:
             paragraphs.append(f'Continuação calculada a partir do lance jogado: {review.line}.')
         if review.uci and review.best_san != review.san:

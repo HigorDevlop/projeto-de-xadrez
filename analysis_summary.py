@@ -32,6 +32,7 @@ def summarize_reviews(reviews):
         'totals': totals,
         'counts': counts,
         'accuracy': {side: player_accuracy(recognized, side) for side in SIDES},
+        'engines': sorted({review.engine_name for review in recognized}),
     }
 
 
@@ -42,7 +43,8 @@ def _accuracy(summary, official, side):
             and math.isfinite(value) and 0 <= value <= 100):
         return float(value), 'Chess.com'
     estimate = summary['accuracy'][side]
-    return estimate, 'Estimada · Stockfish' if estimate is not None else 'Sem lances analisados'
+    engines = ', '.join(summary.get('engines', ())) or 'motor local'
+    return estimate, f'Estimada · {engines}' if estimate is not None else 'Sem lances analisados'
 
 
 def _summary_html(summary, official_accuracies=None, dark=False):
@@ -86,7 +88,7 @@ def _summary_html(summary, official_accuracies=None, dark=False):
     .quality-summary .quality-accuracies {display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px}
     .quality-summary .quality-accuracy {display:flex;flex-direction:column;gap:6px;padding:18px 20px;background:var(--q-card);border:1px solid var(--q-line);border-radius:14px}
     .quality-summary .quality-accuracy>span {font-size:12px;font-weight:600;color:var(--q-muted)}
-    .quality-summary .quality-accuracy>strong {font:400 36px/1.3 Georgia,serif;font-variant-numeric:tabular-nums;color:var(--q-accent)}
+    .quality-summary .quality-accuracy>strong {font:650 38px/1.2 'Segoe UI',sans-serif;letter-spacing:-1.5px;font-variant-numeric:tabular-nums;color:var(--q-ink)}
     .quality-summary .quality-accuracy>small {font-size:12px;color:var(--q-muted)}
     .quality-summary table {width:100%;border-collapse:collapse;font-size:14px;table-layout:fixed}
     .quality-summary thead th {font-size:11px;color:var(--q-muted);font-weight:600;letter-spacing:.02em;padding:0 12px 12px;text-align:left;border-bottom:1px solid var(--q-line)}
@@ -95,12 +97,16 @@ def _summary_html(summary, official_accuracies=None, dark=False):
     .quality-summary td {padding:11px 12px}
     .quality-summary tbody tr+tr {border-top:1px solid var(--q-line)}
     .quality-summary .quality-term {display:flex;align-items:center;gap:10px;line-height:1.3}
-    .quality-summary .quality-symbol {display:flex;flex:none;align-items:center;justify-content:center;width:34px;height:32px;border-radius:9px;font:800 17px/1 system-ui,sans-serif}
+    .quality-summary .quality-symbol {display:flex;flex:none;align-items:center;justify-content:center;width:32px;height:32px;border-radius:50%;font:800 18px/1 'Segoe UI',sans-serif;letter-spacing:-1px;box-shadow:inset 0 1px 0 #ffffff40,0 2px 5px #0003}
     .quality-summary .quality-count {display:flex;align-items:center;gap:10px;font-variant-numeric:tabular-nums}
     .quality-summary .quality-count>span {min-width:2ch;text-align:right;font-weight:600}
-    .quality-summary .quality-track {height:6px;flex:1;background:var(--q-track);border-radius:4px;overflow:hidden}
+    .quality-summary .quality-track {height:7px;flex:1;background:var(--q-track);border-radius:8px;overflow:hidden;box-shadow:inset 0 1px 2px #0003}
     .quality-summary .quality-track>div {height:100%;border-radius:4px}
     .quality-summary .quality-note {color:var(--q-muted);font-size:12px;line-height:1.5;margin:16px 0 0}
+    .quality-summary .quality-accuracy:first-child {border-top:2px solid #e3e3df}
+    .quality-summary .quality-accuracy:last-child {border-top:2px solid #777d88}
+    .quality-summary tbody tr:hover {background:#ffffff03}
+    .quality-summary tbody th,.quality-summary td {padding-top:9px;padding-bottom:9px}
     @container(max-width:420px) {
       .quality-summary .quality-accuracy {padding:12px;gap:3px}
       .quality-summary .quality-accuracy>strong {font-size:26px}
@@ -116,7 +122,7 @@ def _summary_html(summary, official_accuracies=None, dark=False):
         '<thead><tr><th scope="col">Classificação</th><th scope="col">Brancas</th>'
         f'<th scope="col">Pretas</th></tr></thead><tbody>{"".join(rows)}</tbody></table>'
         '<p class="quality-note">As barras mostram a proporção dos lances analisados de cada jogador. '
-        'A precisão estimada usa a perda de pontos esperados na análise local.</p></section>'
+        'A precisão estimada usa a perda no indicador de chances da análise local; não é a precisão oficial do Lichess.</p></section>'
     )
 
 

@@ -18,7 +18,7 @@ def play_move(pgn: str, ply: int, uci: str, expected_fen: str) -> tuple[str, int
     if board.fen() != expected_fen:
         raise ValueError("A posição mudou. Tente o lance novamente.")
     move = chess.Move.from_uci(uci)
-    if board.is_game_over() or move not in board.legal_moves:
+    if move not in board.legal_moves:
         raise ValueError("Lance ilegal nesta posição.")
     # Follow an existing mainline without discarding its result or annotations.
     if node.variations and node.variations[0].move == move:

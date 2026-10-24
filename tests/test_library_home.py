@@ -75,16 +75,20 @@ def test_reader_pagination_and_editor_do_not_change_main_game(tmp_path, monkeypa
     monkeypatch.setenv('ACERVO_USER_PREFERENCE', str(tmp_path/'user.json'))
     monkeypatch.setenv('ACERVO_APPEARANCE_PREFERENCE', str(tmp_path/'appearance.json'))
     monkeypatch.setenv('STOCKFISH_PATH', str(tmp_path/'absent'))
-    for module in ('interactive_board', 'recent_games', 'study_workspace', 'study_entrance', 'profile_avatar',
+    for module in ('interactive_board', 'recent_games', 'study_workspace', 'study_focus', 'book_position_ui', 'study_entrance', 'profile_avatar',
                    'page_chrome', 'cat_mascot', 'tactics_forge', 'tactic_demo', 'pgn_clipboard'):
         sys.modules.pop(module, None)
-    at = AppTest.from_file(str(ROOT/'app.py'))
+    at = AppTest.from_string('''
+import streamlit as st
+from study_workspace import render_study
+st.session_state.setdefault('game', 'Partida principal preservada')
+st.session_state.setdefault('study_upload_revision', 0)
+render_study(st.session_state.study_files, True, False)
+''')
     at.session_state.study_files = (('Manual.txt', b'Page one\fPage two\fPage three'),)
     at.session_state.main_view = 'Estudo com livros'
     at.run(timeout=25)
     assert not at.exception
-    from streamlit.util import calc_hash
-    at._page_hash = calc_hash('estudo')
     main_game = at.session_state.game
     next(b for b in at.button if b.label == 'Abrir livro').click().run(timeout=20)
     assert at.session_state.reader_page == 0

@@ -9,13 +9,13 @@ from chess_review import CATEGORIES, MoveReview, canonical_category, classify, e
 
 
 EXPECTED_CATEGORIES = (
-    ('brilliant', 'Brilhante', '♞✧'),
-    ('best', 'Melhor', '♛◇'),
-    ('excellent', 'Excelente', '♜◈'),
-    ('good', 'Bom', '♝⋄'),
-    ('inaccuracy', 'Imprecisão', '♟⌁'),
-    ('mistake', 'Erro', '♚⨯'),
-    ('blunder', 'Capivorada', '♟‼'),
+    ('brilliant', 'Brilhante', '!!'),
+    ('best', 'Melhor', '★'),
+    ('excellent', 'Excelente', '✓'),
+    ('good', 'Bom', '•'),
+    ('inaccuracy', 'Imprecisão', '?!'),
+    ('mistake', 'Erro', '?'),
+    ('blunder', 'Capivorada', '??'),
 )
 
 
@@ -45,7 +45,7 @@ def test_seven_categories_have_distinct_readable_markers():
 
 def test_all_seven_ratings_can_be_reached_from_analysis():
     examples = {
-        'brilliant': dict(sacrifice=True, played_expected=.79, second_expected=.7, rating=800),
+        'brilliant': dict(sacrifice=True, played_expected=.798, second_expected=.7, rating=800),
         'best': dict(is_best=True, second_expected=.79),
         'excellent': dict(played_expected=.79),
         'good': dict(played_expected=.77),
@@ -64,9 +64,9 @@ def test_equal_score_alternative_is_not_mislabeled_as_engine_choice(second_expec
 
 
 @pytest.mark.parametrize('second_expected,expected', [
-    (None, 'best'), (.60001, 'best'), (.6, 'brilliant'), (.59999, 'brilliant'),
+    (None, 'best'), (.60001, 'best'), (.6, 'best'), (.59999, 'best'),
 ])
-def test_brilliant_forcing_choice_requires_a_clear_tenth_point_gap(second_expected, expected):
+def test_only_good_move_is_best_but_not_brilliant(second_expected, expected):
     assert rating(is_best=True, best_expected=.7, played_expected=.7,
                   second_expected=second_expected) == expected
 
@@ -82,9 +82,9 @@ def test_expected_point_loss_boundaries(loss, expected):
     assert rating(is_best=True, played_expected=.8 - loss) == expected
 
 
-def test_brilliant_sacrifice_rule_keeps_rating_tolerance():
+def test_brilliant_sacrifice_requires_quality_independent_of_rating():
     example = dict(played_expected=.781, second_expected=.7, rating=800)
-    assert rating(sacrifice=True, **example) == 'brilliant'
+    assert rating(sacrifice=True, **example) == 'excellent'
     assert rating(sacrifice=False, **example) == 'excellent'
     assert rating(sacrifice=True, **{**example, 'rating': 2400}) == 'excellent'
     assert rating(sacrifice=True, **{**example, 'second_expected': None}) == 'excellent'
@@ -93,8 +93,8 @@ def test_brilliant_sacrifice_rule_keeps_rating_tolerance():
 
 
 @pytest.mark.parametrize('example', [
-    dict(is_best=True, second_expected=.6),
-    dict(sacrifice=True, played_expected=.79, second_expected=.7, rating=800),
+    dict(is_best=True, sacrifice=True, second_expected=.6),
+    dict(sacrifice=True, played_expected=.798, second_expected=.7, rating=800),
 ])
 def test_genial_and_brilliant_now_produce_one_rating(example):
     result = rating(**example)
@@ -153,7 +153,7 @@ def test_export_of_legacy_genial_review_uses_merged_brilliant_label():
                         'e4', '', [], 'Melhor continuação isolada.')
     exported = chess.pgn.read_game(StringIO(export_review(game, [review])))
     comment = exported.variations[0].comment
-    assert 'Brilhante ♞✧.' in comment
+    assert 'Brilhante !!.' in comment
     assert 'GENIAL' not in comment
     assert 'Anotação anterior.' in comment
     assert review.category == 'great'

@@ -23,7 +23,7 @@ _FORGE = st.components.v2.component(
     ''',
     js='''export default function({data,parentElement}){
       const host=parentElement.host ?? parentElement,forge=parentElement.querySelector('.forge');
-      const palette=data.dark?['#1A2720','#EDF3ED','#ACBCAF','#354A3C','#223329']:['#FFFEFA','#202B26','#626F66','#D9DED5','#ECEFE8'];
+      const palette=data.dark?['#121212','#f5f5f5','#a3a3a3','#2b2b2b','#1d1d1d']:['#FFFEFA','#202B26','#626F66','#D9DED5','#ECEFE8'];
       ['--surface','--ink','--muted','--border','--workshop'].forEach((key,i)=>host.style.setProperty(key,palette[i]));
       const motivation=[
         'Belo lance! Sua visão está ficando mais afiada a cada desafio.',

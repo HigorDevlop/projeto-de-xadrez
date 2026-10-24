@@ -17,7 +17,7 @@ _VIDEO = st.components.v2.component(
     video {width:100%;height:100%;max-height:100vh;object-fit:contain}
     .scene-caption {position:absolute;left:24px;bottom:30px;color:#d0c8bb;font:13px/1.5 sans-serif;letter-spacing:.06em}
     button {position:absolute;right:24px;bottom:24px;padding:12px 20px;border:1px solid #a9b3c4;
-      border-radius:12px;background:#202936;color:#f3f4f6;cursor:pointer}
+      border-radius:12px;background:#202936;color:#f3f4f6;cursor:var(--club-cursor-link,pointer)}
     @media(max-width:560px){.scene-caption{left:16px;bottom:86px}button{right:16px;bottom:20px}}
     ''',
     js='''

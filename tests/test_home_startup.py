@@ -46,6 +46,7 @@ def test_home_does_not_wait_for_history_or_build_analysis_catalog(tmp_path, monk
                    'tactic_demo', 'pgn_clipboard'):
         sys.modules.pop(module, None)
     at = AppTest.from_file(str(ROOT/'app.py'))
+    at.session_state.main_view = at.session_state.active_tab = 'Partida'
     try:
         start = perf_counter()
         at.run(timeout=15)
@@ -56,8 +57,8 @@ def test_home_does_not_wait_for_history_or_build_analysis_catalog(tmp_path, monk
         assert not at.main.title
         assert not at.main.get('page_link')
         assert not any(item.label in {'Desempenho', 'Atualizar partidas', 'Nova partida'} for item in at.main.button)
-        assert any(item.label == 'Desempenho' for item in at.sidebar.get('page_link'))
-        assert any(item.label == 'Biblioteca' for item in at.sidebar.get('page_link'))
+        assert at.session_state.active_tab == 'Partida'
+        assert 'full' not in at.session_state.jobs
         assert any('segundo plano' in item.value for item in at.caption)
         assert not any('Nenhuma partida' in item.value for item in at.info)
         future = at.session_state.jobs['history'][1]
@@ -81,5 +82,4 @@ def test_home_does_not_wait_for_history_or_build_analysis_catalog(tmp_path, monk
     at.run(timeout=15)
     assert not at.exception
     assert at.session_state.active_tab == 'Desempenho'
-    assert any('Desempenho' in item.value for item in at.title)
     assert 'full' not in at.session_state.jobs

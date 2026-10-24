@@ -137,7 +137,12 @@ def preparation_server(tmp_path):
 
 
 def saved_plan(folder):
-    return json.loads(next(folder.glob('*.json')).read_text(encoding='utf-8'))
+    for _ in range(50):
+        try:
+            return json.loads(next(folder.glob('*.json')).read_text(encoding='utf-8'))
+        except (PermissionError, FileNotFoundError, StopIteration):
+            time.sleep(.01)
+    raise AssertionError('Não foi possível ler o progresso salvo')
 
 
 def wait_for_course(page, folder, condition):
@@ -193,6 +198,8 @@ def test_automatic_repetition_resume_and_daily_map_progression(preparation_serve
                         break
                     exercise = s['positions'][s['current']]['exercise']
                     uci = exercise['uci']
+                    from preparation_repetition import revision
+                    expect(page.locator('.board')).to_have_attribute('data-revision', revision(s))
                     page.locator('[data-square='+uci[:2]+'].movable').wait_for()
                     drag(page,uci[:2],uci[2:4])
                     deadline = time.monotonic()+10

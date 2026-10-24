@@ -20,12 +20,14 @@ ROOT = Path(__file__).resolve().parents[1]
 def browser_page():
     playwright = pytest.importorskip('playwright.sync_api')
     with playwright.sync_playwright() as driver:
+        playwright.expect.set_options(timeout=20000)
         edge = Path(os.environ.get('PROGRAMFILES(X86)', '')) / 'Microsoft/Edge/Application/msedge.exe'
         try:
             browser = driver.chromium.launch(executable_path=str(edge) if edge.is_file() else None, headless=True)
         except playwright.Error:
             pytest.skip('No installed browser for component integration tests')
         page = browser.new_page()
+        page.set_default_timeout(20000)
         errors = []
         page.on('pageerror', lambda error: errors.append(str(error)))
         yield page
@@ -198,6 +200,8 @@ def test_all_arrows_update_positions_and_lessons_without_server_wait(browser_pag
         for index in indices:
             page.keyboard.press(direction)
             assert page.locator('.move-counter').inner_text() == f'Lance {index} de {len(frames)-1}'
+            expected_turn = 'Brancas jogam' if frames[index]['fen'].split()[1] == 'w' else 'Pretas jogam'
+            assert page.locator('.turn-label').inner_text() == expected_turn
             assert page.locator('.lesson-text').inner_text() == f'Explicação {index}'
             # A late server render must never undo more recent user navigation.
             page.evaluate('(data)=>window.render(data)', data)
@@ -325,8 +329,10 @@ def test_forge_photoreal_video_only_plays_for_clean_success(browser_page):
     assert 'Sem afiação' in page.get_by_role('status').inner_text()
 
 
-def test_sidebar_initialization_closes_once_and_respects_user_open(browser_page):
+@pytest.mark.parametrize('width,expanded', [(390, 'false'), (1440, 'true')])
+def test_sidebar_initialization_closes_only_mobile_once_and_respects_user_open(browser_page, width, expanded):
     page = browser_page
+    page.set_viewport_size({'width':width, 'height':900})
     page.set_content('')
     mount(page, 'page_chrome.py', {})
     page.evaluate('''()=>{
@@ -335,7 +341,8 @@ def test_sidebar_initialization_closes_once_and_respects_user_open(browser_page)
       sidebar.querySelector('button').onclick=()=>sidebar.setAttribute('aria-expanded','false');
       document.body.append(sidebar);
     }''')
-    page.wait_for_function("document.querySelector('aside').getAttribute('aria-expanded')==='false'")
+    page.wait_for_function('window.__chessSidebarReady===true')
+    assert page.locator('aside').get_attribute('aria-expanded') == expanded
     page.evaluate("document.querySelector('aside').setAttribute('aria-expanded','true');window.render({})")
     assert page.locator('aside').get_attribute('aria-expanded') == 'true'
 

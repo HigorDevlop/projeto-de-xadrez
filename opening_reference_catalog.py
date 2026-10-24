@@ -125,3 +125,63 @@ def extra_courses(base):
 
 def display_name(course):
     return DISPLAY_NAMES.get(course['id'], course['title'])
+
+
+def expand_course(course, limit=32):
+    """Append deeper ECO branches without changing existing IDs or responses."""
+    prefix = tuple(_moves(' '.join(t.split('.')[-1] for t in course['notation'].split())))
+    course['lines'] = [line for line in course['lines'] if tuple(line['moves'][:len(prefix)])==prefix]
+    side = course['side'] == 'white'
+    choices, seen = {}, set()
+    for line in course['lines']:
+        board = chess.Board()
+        seen.add(tuple(line['moves']))
+        for uci in line['moves']:
+            if board.turn == side:
+                choices[board.epd()] = uci
+            board.push_uci(uci)
+    # Compare the characteristic move sequence, not just its final position.
+    candidates = [(moves, name) for moves, name in eco_paths() if moves[:len(prefix)] == prefix]
+    candidates.sort(key=lambda row: (len(row[0]), row[1], row[0]))
+    if course['id'].split('_')[0] == 'london':
+        candidates = [(tuple(_moves(text)), 'London System: '+name) for text, name in (
+            ('d4 d5 Nf3 Nf6 Bf4 e6 e3 c5 c3 Nc6 Nbd2 Bd6 Bd3 O-O O-O', 'Desenvolvimento clássico'),
+            ('d4 d5 Nf3 Nf6 Bf4 e6 e3 c5 c3 Nc6 Nbd2 Be7 Bd3 O-O O-O', 'Bispo em e7'),
+            ('d4 d5 Nf3 Nf6 Bf4 e6 e3 c5 c3 Nc6 Nbd2 Qb6 Qb3', 'Pressão sobre b2'),
+            ('d4 d5 Nf3 Nf6 Bf4 e6 e3 c5 c3 Nc6 Nbd2 cxd4 exd4', 'Troca central'),
+            ('d4 d5 Nf3 Nf6 Bf4 e6 e3 Bd6 Bxd6 Qxd6 Bd3 O-O O-O', 'Troca dos bispos'),
+            ('d4 d5 Nf3 Nf6 Bf4 e6 e3 Be7 Bd3 O-O O-O c5 c3', 'Roque antes de c5'),
+            ('d4 d5 Nf3 Nf6 Bf4 e6 e3 b6 Bd3 Bb7 O-O Be7 c3', 'Fianqueto da dama'),
+            ('d4 d5 Nf3 Nf6 Bf4 c5 e3 Nc6 c3 Qb6 Qb3 c4 Qc2', 'Avanço c4'),
+            ('d4 Nf6 Nf3 g6 Bf4 Bg7 e3 d6 h3 O-O Be2 c5 O-O', 'Estrutura indiana'),
+            ('d4 d5 Nf3 Nc6 Bf4 Bf5 e3 e6 Bd3 Bxd3 Qxd3', 'Troca em d3'),
+            ('d4 f5 Nf3 Nf6 Bf4 e6 e3 Be7 Bd3 O-O O-O', 'Contra a Holandesa'),
+            ('d4 d5 Nf3 Nf6 Bf4 g6 e3 Bg7 Be2 O-O O-O', 'Fianqueto do rei'),
+        )] + candidates
+    for moves, name in candidates:
+        moves = moves[:24]
+        if len(moves) % 2 == (0 if side else 1):
+            moves = moves[:-1]
+        if not moves or moves in seen:
+            continue
+        # A prefix of an existing lesson adds no new material.
+        if any(tuple(line['moves'][:len(moves)]) == moves for line in course['lines']):
+            continue
+        board, additions = chess.Board(), {}
+        for uci in moves:
+            if board.turn == side:
+                position = board.epd()
+                if choices.get(position, uci) != uci:
+                    break
+                additions[position] = uci
+            board.push_uci(uci)
+        else:
+            choices.update(additions)
+            seen.add(moves)
+            course['lines'].append(dict(id=course['id']+'-'+sha256(' '.join(moves).encode()).hexdigest()[:12],
+                moves=list(moves), side=course['side'], opening=name.split(':')[0],
+                variation=name.partition(': ')[2]))
+            if len(course['lines']) >= limit:
+                break
+    course['family_prefix'] = list(prefix)
+    return course

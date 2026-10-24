@@ -25,19 +25,19 @@ class Category:
 
 
 CATEGORIES = {
-    "brilliant": Category("Brilhante", "Brilliant", "#00CDB5", "#071A20", "♞✧",
-                          "Sacrifício produtivo de peça ou melhor continuação decisiva, pelo menos 10 pontos percentuais acima da segunda alternativa."),
-    "best": Category("Melhor", "Best", "#713BD6", "#FFFFFF", "♛◇",
-                     "Primeira escolha do Stockfish, sem perda de pontos esperados."),
-    "excellent": Category("Excelente", "Excellent", "#166534", "#FFFFFF", "♜◈",
+    "brilliant": Category("Brilhante", "Brilliant", "#00CDB5", "#071A20", "!!",
+                          "Sacrifício de peça ligado ao lance jogado, confirmado pelo motor, sem perda relevante de chances e sem vitória já garantida pelas alternativas."),
+    "best": Category("Melhor", "Best", "#713BD6", "#FFFFFF", "★",
+                     "Primeira escolha do motor selecionado, sem perda no indicador de chances."),
+    "excellent": Category("Excelente", "Excellent", "#166534", "#FFFFFF", "✓",
                           "Alternativa com perda inferior a 2 pontos percentuais, inclusive empates na avaliação."),
-    "good": Category("Bom", "Good", "#B7E355", "#16220B", "♝⋄",
+    "good": Category("Bom", "Good", "#B7E355", "#16220B", "•",
                      "Perda de 2 até menos de 5 pontos percentuais."),
-    "inaccuracy": Category("Imprecisão", "Inaccuracy", "#FACC15", "#2A2200", "♟⌁",
+    "inaccuracy": Category("Imprecisão", "Inaccuracy", "#FACC15", "#2A2200", "?!",
                            "Perda de 5 até menos de 10 pontos percentuais."),
-    "mistake": Category("Erro", "Mistake", "#F97316", "#281201", "♚⨯",
+    "mistake": Category("Erro", "Mistake", "#F97316", "#281201", "?",
                         "Perda de 10 a 20 pontos percentuais, inclusive."),
-    "blunder": Category("Capivorada", "Blunder", "#C81E3A", "#FFFFFF", "♟‼",
+    "blunder": Category("Capivorada", "Blunder", "#C81E3A", "#FFFFFF", "??",
                         "Perda superior a 20 pontos percentuais."),
 }
 
@@ -70,21 +70,17 @@ def classify(*, in_book: bool, is_best: bool, sacrifice: bool,
              best_expected: float, played_expected: float,
              second_expected: float | None = None, missed_opportunity: bool = False,
              thresholds: Thresholds = Thresholds(), rating: int = 1500) -> str:
-    """Expected-points bands; special categories are documented approximations.
+    """Chance-loss bands; brilliance is a conservative application heuristic.
 
     5% starts inaccuracy, 10% starts mistake; blunder is strictly above 20%.
-    Rating adjusts only the tolerance for a verified productive piece sacrifice.
+    Rating does not relax the quality required for a special classification.
     """
     for value in (best_expected, played_expected, second_expected):
         if value is not None and (not math.isfinite(value) or not 0 <= value <= 1):
             raise ValueError("Pontos esperados devem estar entre 0 e 1.")
     loss = round(max(0, best_expected - played_expected), 8)
-    tolerance = max(0.005, min(0.02, 0.02 - (rating - 800) / 120000))
-    if (sacrifice and played_expected >= 0.5 and loss <= tolerance
+    if (sacrifice and not in_book and played_expected >= 0.5 and loss <= 0.005
             and second_expected is not None and second_expected < 0.95):
-        return "brilliant"
-    if (is_best and loss == 0 and second_expected is not None and best_expected >= 0.5
-            and round(best_expected - second_expected, 8) >= 0.1):
         return "brilliant"
     if is_best and loss == 0:
         return "best"
@@ -201,27 +197,42 @@ def material(board: chess.Board, color: chess.Color) -> int:
 
 
 def sacrifice_in_line(board: chess.Board, pv: list[chess.Move]) -> bool:
-    """Conservative heuristic: deficit persists across two opportunities to recapture.
+    """The played piece is captured on the reply and its deficit persists.
 
     Mate with a retained deficit also qualifies. Balanced exchanges and a piece
     merely hanging without an accepted sacrifice do not qualify.
     """
     if board.legal_moves.count() <= 1 or len(pv) < 3:
         return False
+    first = pv[0]
+    piece = board.piece_at(first.from_square)
+    if first not in board.legal_moves or not piece or piece.piece_type not in VALUES or piece.piece_type == chess.PAWN:
+        return False
     color = board.turn
     baseline = material(board, color)
     original_pieces = sum(len(board.pieces(kind, color)) for kind in (chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN))
     probe = board.copy()
+    probe.push(first)
+    reply = pv[1]
+    if (reply not in probe.legal_moves or reply.to_square != first.to_square
+            or not probe.is_capture(reply)):
+        return False
+    probe.push(reply)
+    # Includes exchange sacrifices and a minor piece given for a pawn.
+    if baseline - material(probe, color) < 150:
+        return False
     sustained = 0
-    for ply, move in enumerate(pv[:12]):
+    for ply, move in enumerate(pv[2:7], 2):
         if move not in probe.legal_moves:
             return False
         probe.push(move)
         if ply >= 2 and probe.turn != color:
             deficit = baseline - material(probe, color)
             pieces = sum(len(probe.pieces(kind, color)) for kind in (chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN))
-            piece_sacrificed = deficit >= 300 and pieces < original_pieces
-            sustained = sustained + 1 if piece_sacrificed else 0
+            piece_sacrificed = deficit >= 150 and pieces < original_pieces
+            if not piece_sacrificed:
+                return False
+            sustained += 1
             if sustained >= 2 or (piece_sacrificed and probe.is_checkmate()):
                 return True
     return False
@@ -245,10 +256,11 @@ class MoveReview:
     expected_loss: float = 0.0
     best_expected: float | None = None
     played_expected: float | None = None
+    engine_name: str = 'Stockfish'
 
 
 def player_accuracy(reviews: list[MoveReview], side: str) -> float | None:
-    """Mean of an exponential accuracy estimate using expected-point losses.
+    """Mean of an exponential accuracy estimate using chance-indicator losses.
 
     This is not Chess.com's CAPS2 or Lichess's weighted game accuracy.
     """

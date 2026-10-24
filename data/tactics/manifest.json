@@ -1,0 +1,30 @@
+{
+  "source": "https://database.lichess.org/lichess_db_puzzle.csv.zst",
+  "license": "CC0-1.0",
+  "prepared": "2026-10-23",
+  "count": 30033,
+  "scanned": 242380,
+  "rejected": 0,
+  "themes": {
+    "fork": 3855,
+    "pin": 1819,
+    "skewer": 621,
+    "discoveredAttack": 1526,
+    "mateIn1": 4533,
+    "mateIn2": 4039,
+    "backRankMate": 1018,
+    "hangingPiece": 1121,
+    "deflection": 1192,
+    "sacrifice": 2265,
+    "endgame": 15091,
+    "attraction": 1049,
+    "clearance": 408,
+    "interference": 115,
+    "intermezzo": 346,
+    "promotion": 751,
+    "underPromotion": 40,
+    "doubleCheck": 176,
+    "smotheredMate": 143
+  },
+  "sha256": "cbe20843bff4e0bd6b3fdcf203885fe6a559b6ab42908c82e5f3f208f5d8cb13"
+}

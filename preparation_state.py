@@ -3,6 +3,8 @@ from datetime import date, datetime, time as day_time, timedelta, timezone
 from hashlib import sha256
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from tempfile import NamedTemporaryFile
+from threading import RLock
 import json
 import os
 import random
@@ -16,6 +18,7 @@ except ZoneInfoNotFoundError:
 STAGES = ('opening', 'middlegame', 'tactics')
 STAGE_NAMES = {'opening': 'Aberturas', 'middlegame': 'Meio-jogo', 'tactics': 'Táticos'}
 STAGE_SECONDS = 30 * 60
+_PLAN_LOCK = RLock()
 
 
 def today(now=None):
@@ -51,15 +54,26 @@ def plan_path(username, namespace=None):
 def save_plan(plan, namespace=None):
     path = plan_path(plan['username'], namespace)
     path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix('.tmp')
-    temporary.write_text(json.dumps(plan, ensure_ascii=False), encoding='utf-8')
-    temporary.replace(path)
+    payload = json.dumps(plan, ensure_ascii=False)
+    # Separate browser sessions may save the same player's progress together.
+    with _PLAN_LOCK:
+        with NamedTemporaryFile(mode='w', encoding='utf-8', dir=path.parent,
+                                suffix='.tmp', delete=False) as file:
+            temporary = Path(file.name)
+            file.write(payload)
+        try:
+            temporary.replace(path)
+        finally:
+            temporary.unlink(missing_ok=True)
 
 
 def load_plan(username, namespace=None):
     try:
-        plan = json.loads(plan_path(username, namespace).read_text(encoding='utf-8'))
-        if plan.get('version') != 1 or plan.get('username', '').lower() != username.lower():
+        with _PLAN_LOCK:
+            plan = json.loads(plan_path(username, namespace).read_text(encoding='utf-8'))
+        if (not isinstance(plan, dict) or plan.get('version') != 1
+                or not isinstance(plan.get('username'), str)
+                or plan['username'].strip().lower() != username.strip().lower()):
             return None
         # Offline time is never charged to a training session.
         plan['active'] = None

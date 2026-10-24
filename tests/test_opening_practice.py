@@ -48,8 +48,9 @@ opening_practice.render_opening_practice('practice-test')
     assert app.session_state.openings_plan['repertoire_ids'] == ['caro']
     assert load_plan('practice-test') is None
     assert load_plan('practice-test', namespace='openings') is not None
-    assert [b.label for b in app.button] == ['Todas as aberturas', 'Treinar']
-    assert app.subheader[0].value == 'Caro-Kann'
+    assert 'Todas as aberturas' in [b.label for b in app.button]
+    assert 'Treinar' in [b.label for b in app.button]
+    assert 'Aprender com setas' not in [b.label for b in app.button]
     next(b for b in app.button if b.label == 'Treinar').click().run()
     assert not app.exception
     assert app.session_state.openings_active

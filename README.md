@@ -1,14 +1,16 @@
-# Acervo de xadrez
+# Coach Chess
+
+O aplicativo exige login. O criador configura seu **Superadministrador** com **Configurar Superadministrador.bat** e emite as chaves especiais que autorizam professores. Cada chave fica vinculada a um único Professor, é obrigatória em todo login manual e libera uma sala de quatro alunos. As chaves são emitidas na aba privada Superadministrador, acessada por Usuários. O Superadministrador acessa todos os professores e alunos; cada Professor gerencia apenas sua sala. O acesso automático é opcional e revogável. Consulte [TUTORIAL_LOGIN.md](TUTORIAL_LOGIN.md) e [TUTORIAL_PROFESSOR.md](TUTORIAL_PROFESSOR.md). Professor, criador e alunos precisam usar o mesmo servidor para compartilhar os dados.
 
 Execute `python iniciar.py` nesta pasta e abra http://127.0.0.1:8501. O inicializador cria o ambiente virtual e instala as dependências. No Windows, também há `iniciar.bat` e `iniciar.ps1`.
 
 ## Versão desktop
 
-No Windows, abra **Acervo Desktop.bat** com dois cliques. O aplicativo inicia localmente e abre diretamente em **Aberturas**, em uma janela própria do Edge ou Chrome, sem barra de endereço. Se nenhum deles estiver instalado, abre no navegador padrão. Em uma instalação nova, execute `iniciar.bat` primeiro para preparar as dependências. Não é necessário instalar outro motor ou informar uma chave de API.
+No Windows, abra **Coach Chess Desktop.bat** com dois cliques. O aplicativo inicia localmente e abre diretamente em **Aberturas**, em uma janela própria do Edge ou Chrome, sem barra de endereço. Se nenhum deles estiver instalado, abre no navegador padrão. Em uma instalação nova, execute `iniciar.bat` primeiro para preparar as dependências. Não é necessário instalar outro motor ou informar uma chave de API.
 
-A página de **Aberturas** usa o modelo das referências LotusChess: fundo azul-escuro, cartões cinza, tabuleiros bege e marrom, medalhas, trilha de estrelas e botões em degradê. A tela inicial separa as aberturas de brancas e negras em duas fileiras. **Ver todas** abre a busca, os filtros **Todos / e4 / d4 / Outro** e a paginação. Há 78 cursos, contando os dois lados, com 391 linhas legais baseadas no catálogo ECO local.
+A página de **Aberturas** usa a identidade **Coach Chess**: fundo preto, cartões em degradê escuro, tabuleiros bege e marrom, medalhas, trilha de estrelas e botões em degradê. A tela inicial separa as aberturas de brancas e negras em duas fileiras. **Ver todas** abre a busca, os filtros **Todos / e4 / d4 / Outro** e a paginação. Há 78 cursos, contando os dois lados, com 1.017 linhas legais baseadas no catálogo ECO local.
 
-Cada curso tem as abas **Curso / Armadilhas / Variações**. Durante o treino, o tabuleiro fica à esquerda e os controles à direita; em janelas estreitas os controles passam para baixo. As respostas do adversário são automáticas. O aluno joga seguindo a seta e depois repete de memória. **Próximo** avança após um erro; **Continuar** passa entre aprendizado, repetição e revisão. As setas verde/vermelha, os marcadores e os contadores mostram o resultado de cada tentativa. **Pausar treino** conserva a posição.
+Cada curso tem as abas **Curso / Armadilhas / Variações**. Durante o treino, o tabuleiro fica à esquerda e os controles à direita; em janelas estreitas os controles passam para baixo. **Treinar** ensina cada linha inédita com setas, passa pela repetição de memória e então abre o quiz com **A Fazer / Erro / Não Sei / Certo**. Ao concluir e clicar em **Continuar**, a próxima linha inédita começa novamente pelo aprendizado. Linhas já aprendidas abrem diretamente a revisão. Um acerto de primeira conclui a posição. Um erro avança imediatamente e reinsere a posição aleatoriamente; são necessários dois acertos sem ajuda para recuperá-la (**Erro → Não Sei → Certo**). Qualquer novo erro reinicia esse ciclo. **Pausar treino** conserva a posição. A fila e os estados ficam salvos.
 
 O progresso, as posições aprendidas e a sequência diária são reais e ficam salvos. As avaliações vêm do Stockfish local; o perfil usa o histórico de partidas carregado, sem copiar os números dos prints. As conquistas aparecem ao atingir a meta indicada no curso. As referências orientam a aparência e o fluxo; o conteúdo das linhas e as estatísticas pertencem a esta implementação local.
 
@@ -18,19 +20,19 @@ O progresso continua em `data/preparation/openings/`. A janela usa um servidor r
 
 ## Interface
 
-A interface segue uma direção editorial de clube de xadrez: marfim e verde-floresta no tema claro, verdes profundos no escuro, títulos serifados e controles com espaçamento consistente. Partidas, análise, anotações, biblioteca, táticos e Preparo compartilham a mesma identidade. A navegação lateral reúne as páginas acima de **Configurações**; a tela inicial mantém apenas as oito partidas recentes. Biblioteca, táticos, preparo, desempenho, atualização e nova partida ficam na lateral.
+O tema global usa fundo `#0a0a0a`, superfícies `#121212`, degradês discretos e bordas minimalistas. A identidade e os ícones do aplicativo são Coach Chess, com logo preto e branco. A barra lateral do aluno mostra apenas **Análise** e **Aberturas**. O **Professor** também tem **Modo Preparo**, com edição exclusiva de rotinas e dashboard da sala. O aplicativo abre em Análise; o inicializador desktop abre diretamente em Aberturas.
 
 A referência principal é [Refactoring UI, de Adam Wathan e Steve Schoger](https://refactoringui.com/), com apoio dos princípios de contraste, repetição, alinhamento e proximidade apresentados na descrição de [The Non-Designer’s Design Book, de Robin Williams](https://www.pearson.com/en-us/subject-catalog/p/non-designers-design-book-the/P200000000691?view=educator). A reforma aplica os princípios publicados nas apresentações dessas obras; não depende de reproduzir páginas nem pressupõe a leitura integral dos livros.
 
-O vídeo de entrada foi removido. O aplicativo abre diretamente no painel, inclusive quando existe uma preferência antiga de exibição da abertura. O vídeo do ferreiro continua pertencendo aos exercícios táticos.
+O vídeo de entrada foi removido. O aplicativo abre diretamente na Análise, inclusive quando existe uma preferência antiga de exibição da abertura. O vídeo do ferreiro continua pertencendo aos exercícios táticos.
 
 ## Stockfish e livros
 
-O único motor de IA é o **Stockfish**. A cópia Windows restaurada é a versão 17.1, em `engines/stockfish.exe`. Para outra instalação ou sistema operacional, configure `STOCKFISH_PATH` ou coloque o binário nativo em `engines/stockfish`. Não há Ollama, modelo de linguagem, API de análise ou chave necessária. Veja [engines/README.md](engines/README.md).
+O motor principal é o **Stockfish 19**, atualizado a partir da release oficial para Windows, em `engines/stockfish.exe`. **Berserk 14** também está integrado como opção de análise local na CPU. Para outra instalação ou sistema operacional, configure `STOCKFISH_PATH` ou coloque o binário nativo em `engines/stockfish`. Não há Ollama, modelo de linguagem, API de análise ou chave necessária. Veja [engines/README.md](engines/README.md).
 
 O aplicativo primeiro extrai o texto dos livros e indexa comentários PGN por posição, além de temas em português/inglês (centro, desenvolvimento, roque, estrutura de peões, finais etc.). Os arquivos em **Configurações → Livros** e os anexados à página **Estudo com livros** são combinados. Esse índice é preparado antes de iniciar o motor e reutilizado enquanto os livros não mudarem.
 
-Ao acionar **Estudar** ou **Analisar Partida**, o Stockfish avalia a melhor jogada, a segunda alternativa e o lance realizado. O aplicativo aplica as faixas de pontos esperados abaixo e compõe explicações em português com arquivo/página, temas relacionados e fatos verificáveis do tabuleiro. Trechos em outros idiomas ficam preservados no índice interno, sem aparecer na explicação. O resumo temático não é apresentado como tradução literal. Comentários PGN de uma posição exata têm prioridade; correspondências temáticas são identificadas como tal. Se nenhum trecho corresponder, isso aparece explicitamente. Livros Polyglot contêm jogadas, não prosa.
+Ao solicitar **Analisar Partida**, o motor escolhido avalia a melhor jogada, a segunda alternativa e o lance realizado. O aplicativo aplica as faixas do indicador de chances abaixo e compõe explicações em português com arquivo/página, temas relacionados e fatos verificáveis do tabuleiro. Trechos em outros idiomas ficam preservados no índice interno, sem aparecer na explicação. O resumo temático não é apresentado como tradução literal. Comentários PGN de uma posição exata têm prioridade; correspondências temáticas são identificadas como tal. Se nenhum trecho corresponder, isso aparece explicitamente. Livros Polyglot contêm jogadas, não prosa.
 
 **O Stockfish não lê nem é treinado pelos livros.** A consulta bibliográfica é feita pelo aplicativo; o cálculo enxadrístico é feito pelo motor. Não há compreensão semântica por um modelo de linguagem. O material orienta as explicações, mas não substitui nem altera arbitrariamente os cálculos. As referências e explicações em português também acompanham o PGN exportado. Sem Stockfish, **Estudar** prepara descrições factuais, sem atribuir avaliações do motor.
 
@@ -52,6 +54,9 @@ As qualidades Rápida, Equilibrada e Profunda limitam cada busca a 0,08 s, 0,25 
 ## Estudo, perguntas e aparência
 
 A página **Análise** apresenta o tabuleiro centralizado e ampliado, com o gato acomodado abaixo. A barra de ações reúne **Analisar Partida**, **Estudar** e **Anotações**. **Estudar** abre as explicações; **Fechar estudo** recolhe o texto. **Analisar Partida** abre as opções **Análise Rápida**, **Análise Mediana** e **Análise Profunda**; essa análise só inicia após **Iniciar análise**. A caixa **Resumo da qualidade dos lances** acompanha o processamento e, ao concluir, mostra as sete classificações, contagens e proporções por jogador, além das precisões oficiais ou estimadas identificadas. Os resultados continuam nos lances e no PGN.
+
+Antes de iniciar, o formulário permite escolher **Stockfish** ou **Berserk**. Os dois são executados localmente; o Berserk 14 para Windows acompanha esta instalação em `engines/berserk/`, com fonte e licenças. O resumo e as explicações identificam o motor realmente usado. A escolha não dispara análise automática e uma falha não troca de motor silenciosamente. Uma posição montada no editor também pode ser analisada sem uma partida com lances. A seleção fica preservada durante a sessão; a preparação de aulas continua usando Stockfish.
+
 
 Em **Estudo com livros**, os uploads são adicionados à biblioteca sem apagar os anteriores. Cada PDF mostra sua primeira página como capa; arquivos de texto recebem uma capa com o título. **Abrir livro** começa na primeira página. O leitor conserva a diagramação original dos PDFs e oferece páginas anterior/próxima e salto por número. Ao lado, um tabuleiro independente permite jogar e navegar sem perder a página lida. **Editar posição** permite arrastar, colocar ou apagar peças, limpar tudo, restaurar a posição inicial e importar FEN; lado a jogar e direitos de roque também são editáveis. A posição é validada ao concluir a edição. Livros e posições permanecem na sessão ao trocar de aba; não são salvos como biblioteca permanente no disco.
 
@@ -83,7 +88,7 @@ O Stockfish examina até **12 partidas recentes** relevantes por lote para ident
 
 Depois de criar o plano, aparecem apenas a **trilha contínua com quadrados por dia** e o card de imagem/status. Clique no dia atual para abrir a próxima fase disponível: **Aberturas → Meio-jogo → Táticos**, 30 minutos cada e no máximo 10 táticos. Os dias futuros ficam bloqueados até a data correspondente, no horário de Brasília. O treino ocupa uma tela dedicada, sem menus, perfil ou busca, com o cronômetro fixo no topo.
 
-Em **Aberturas**, cada linha ensina até cinco decisões do jogador, com respostas adversárias automáticas. Primeiro aparecem setas; os quadrados de progresso ficam verdes nos acertos e vermelhos nos erros. Depois, a mesma linha retorna para prática sem ajuda inicial. Um erro revela o lance e permite tentar novamente. O quiz seguinte embaralha as posições e recoloca os erros no fim da fila até serem acertados; só então começa outra linha. Ao completar 30 minutos, a fase termina e guarda exatamente o ponto da aula para a próxima sessão.
+Em **Aberturas**, as novas variações podem chegar a 12 decisões do jogador, com respostas adversárias automáticas. Cada linha inédita começa com setas, passa pela repetição de memória e termina no quiz de quatro estados. No quiz, os erros retornam aleatoriamente e exigem dois acertos sem ajuda para serem concluídos. Após **Continuar**, a próxima linha inédita começa pelo aprendizado com setas. O progresso e a posição da aula ficam salvos.
 
 O **Meio-jogo** apresenta posições dos erros do próprio jogador na abertura escolhida. Após uma tentativa errada, a explicação ao lado mostra a alternativa calculada e a continuação para comparar. Os **Táticos** também vêm desses erros reais, com a opção de rever a partida antes de resolver. Quando não há posições disponíveis em uma fase, o aplicativo informa isso e permite concluir essa revisão.
 
@@ -105,11 +110,13 @@ O ferreiro acompanha o exercício sem um título acima do vídeo: a cada lance c
 
 ## Pontos esperados e classificação
 
-O Stockfish fornece WDL, convertido em pontos esperados entre 0 e 1 da perspectiva do jogador que fez o lance: `P(vitória) + 0,5 × P(empate)`. Isso não é estritamente a probabilidade de vitória quando empates são possíveis. A perda é a diferença entre a melhor continuação e a jogada realizada, sem usar variação bruta de centipeões.
+O indicador da revisão usa a curva pública do Lichess: `1 / (1 + exp(-0,00368208 × cp))`, com centipeões limitados a ±1000 e mates tratados como vitória ou derrota. Ele é calculado da perspectiva de quem jogou. Não é o WDL de partidas entre motores nem uma probabilidade calibrada ao rating humano. O WDL continua disponível para a explicação da posição inicial, mas não é misturado com esse indicador na classificação.
+
+O lance jogado e a melhor alternativa são comparados na mesma busca MultiPV, reaproveitando a avaliação se o lance já estiver entre os candidatos. Perdas a partir de cinco pontos percentuais passam por uma confirmação com maior profundidade e tempo. Isso reduz a influência de buscas rápidas inconsistentes; não elimina todas as limitações de uma análise com orçamento finito.
 
 | Categoria | Cor | Regra |
 |---|---|---|
-| ♞✧ Brilhante | Turquesa | Sacrifício produtivo de peça ou melhor continuação decisiva |
+| ♞✧ Brilhante | Turquesa | Sacrifício produtivo de peça confirmado, com perda de no máximo 0,005 |
 | ♛◇ Melhor | Violeta | Primeira escolha do motor, com perda zero |
 | ♜◈ Excelente | Verde escuro | Perda menor que 0,02, incluindo alternativas empatadas na avaliação arredondada |
 | ♝⋄ Bom | Verde-lima | De 0,02 até menos de 0,05 |
@@ -121,11 +128,13 @@ São exatamente **sete avaliações**, com símbolos distintos e contraste de te
 
 Somente após solicitar uma análise, lances **Brilhante** recebem efeitos especiais: raio e aura azul para a peça branca, meteoro e aura vermelha para a peça preta. A orientação do tabuleiro não muda a cor do efeito. Atualizações da mesma posição não repetem o impacto; navegar a outro lance limpa o efeito anterior. A preferência do sistema por movimento reduzido mantém apenas a aura estática. Táticos e edição de posições não exibem esses efeitos.
 
-As regras especiais são aproximações documentadas, não o algoritmo privado do Chess.com. O sacrifício exige déficit material de pelo menos três peões mantido após duas oportunidades de resposta ou até mate; ofertas de peão e trocas equilibradas não bastam. A tolerância de perda para Brilhante diminui de 2% para 0,5% conforme o rating: `clamp(0,02 − (rating − 800) / 120000, 0,005, 0,02)`. Usa-se 1500 quando o rating não está disponível. A qualidade da classificação depende da análise WDL do Stockfish; suas probabilidades não são calibradas ao rating humano. O rating ajusta somente a tolerância de Brilhante.
+As regras especiais são aproximações documentadas, não o algoritmo privado do Chess.com. **Encontrar a única boa jogada não basta para receber Brilhante.** O detector conservador exige que a peça do lance seja capturada na resposta e mantenha um déficit de pelo menos 1,5 peão por duas oportunidades de recuperar material, ou até dar mate. Isso inclui sacrifícios de qualidade e peça por peão, mas exclui ofertas de peão, trocas equilibradas e perdas de outras peças ocorridas depois. Sacrifícios com aceitação mais tardia podem não ser reconhecidos.
 
-O catálogo de aberturas CC0 do Lichess continua disponível como fonte, mas não sobrepõe a classificação por pontos esperados. Uma alternativa com pontuação arredondada igual à melhor não recebe automaticamente Melhor ou Brilhante: Melhor exige a primeira escolha do motor; Brilhante exige uma das condições especiais descritas acima.
+Brilhante exige ainda uma busca de confirmação, posição ao menos equilibrada, perda de no máximo 0,5 ponto percentual, segunda alternativa global abaixo de 95% no indicador e ausência do lance no catálogo de aberturas. O rating não torna essas condições mais permissivas. Uma comparação restrita a dois lances não comprova qual é a segunda alternativa global e não habilita o selo.
 
-Precisão oficial do Chess.com é preservada quando disponível. Nos demais casos, a precisão é uma média estimada de uma curva exponencial aplicada à perda de pontos esperados; não reproduz CAPS2 nem a agregação do Lichess.
+O catálogo de aberturas CC0 do Lichess continua disponível como fonte, mas não sobrepõe a classificação por perda de chances. Uma alternativa com pontuação arredondada igual à melhor não recebe automaticamente Melhor ou Brilhante: Melhor exige a primeira escolha do motor; Brilhante exige as condições de sacrifício descritas acima.
+
+Precisão oficial do Chess.com é preservada quando disponível. Nos demais casos, a precisão é uma média estimada de uma curva exponencial aplicada à perda do indicador de chances; não reproduz CAPS2 nem a agregação do Lichess.
 
 Referência conceitual: [classificação de lances do Chess.com](https://support.chess.com/en/articles/8572705-how-are-moves-classified-what-is-a-blunder-or-brilliant-etc). Os limites acima seguem o pedido deste projeto, incluindo Capivorada estritamente acima de 20%.
 
@@ -133,7 +142,7 @@ Referência conceitual: [classificação de lances do Chess.com](https://support
 
 `Dockerfile` e `render.yaml` permitem publicar no Render. A imagem Linux instala Stockfish e define STOCKFISH_PATH. Não são necessárias credenciais de IA.
 
-Na pasta do aplicativo, execute `.venv\Scripts\python.exe -m pytest tests -q` (Linux/macOS: `.venv/bin/python -m pytest tests -q`). A suíte cobre regras de xadrez, importação, Stockfish e fontes bibliográficas, limites de classificação, navegação sem novas avaliações, busca por faixa e reinício de táticos. Os testes de componentes usam Playwright e Edge/Chromium já instalado e não iniciam servidor nem baixam navegadores. Para verificar a interface integrada, execute `.venv\Scripts\python.exe tests/browser_smoke.py`: o teste abre um servidor temporário com dados locais, confere os dois temas, a navegação completa, perguntas, PGN e táticos, salva capturas em `tests/artifacts/` e encerra o servidor.
+Na pasta do aplicativo, execute `.venv\Scripts\python.exe -m pytest tests -q` (Linux/macOS: `.venv/bin/python -m pytest tests -q`). A suíte cobre regras de xadrez, importação, Stockfish e fontes bibliográficas, limites de classificação, navegação sem novas avaliações, busca por faixa e reinício de táticos. Os testes de componentes usam Playwright e Edge/Chromium já instalado e não iniciam servidor nem baixam navegadores. Para verificar a interface integrada, execute `.venv\Scripts\python.exe tests/browser_smoke.py`: o comando executa os testes atuais de login, análise, livros, aberturas e perfis, com servidores temporários e dados isolados. As capturas ficam em `tests/artifacts/`, e os servidores são encerrados ao terminar.
 
 ## Preparo por repertórios fechados
 
@@ -146,3 +155,16 @@ A precisão diária é `acertos na primeira tentativa / decisões testadas`, con
 O progresso é salvo por usuário em `data/preparation/` (visitantes sem usuário compartilham o perfil local vazio). Planos antigos continuam disponíveis; o botão **Criar novo preparo com repertórios prontos** permite substituí-los. Os novos módulos são `opening_repertoires.py`, `opening_training_state.py`, `opening_catalog_ui.py` e `opening_training_ui.py`.
 
 Validação: `.venv\Scripts\python.exe -m pytest tests/test_opening_training.py tests/test_opening_training_ui.py tests/test_opening_catalog_tabs.py -q`. Os testes visuais precisam de Playwright e Edge/Chromium; os testes integrados abrem e encerram servidores temporários com armazenamento isolado e cobrem a continuação após o quinto lance, dicas, repetição de memória e retomada pela trilha.
+
+
+## Posições dos livros sincronizadas com a leitura
+
+O leitor apresenta o livro ampliado na metade esquerda e o tabuleiro na metade direita, com os ajustes abaixo. A página inteira mantém sua proporção em uma área da mesma altura do tabuleiro; topo e base ficam alinhados. Ao abrir um novo livro, o tabuleiro começa na posição inicial; passar páginas preserva os lances do usuário. As configurações ficam recolhidas em **Opções de estudo**. O seletor e os botões de próximo/anterior apenas escolhem o diagrama; **Carregar posição da página** aplica a escolha. As posições são preparadas automaticamente em segundo plano, mas nunca substituem o tabuleiro sem essa ação explícita. **Reexaminar página** tenta o reconhecimento em maior resolução, preservando os diagramas existentes.
+
+As setas **← / →** seguem a última área clicada: no livro, mudam páginas; no tabuleiro, percorrem os lances. Essa seleção permanece durante as atualizações e funciona também no modo foco. Campos de texto e seletores mantêm seus próprios atalhos.
+
+Os livros ficam salvos por conta em `data/book_library.sqlite3`, com limite global de 500 MB para seus arquivos; o envio é atômico e não duplica um livro já salvo. A preparação local cobre todas as páginas em segundo plano, com progresso na biblioteca, prioridade para a página atual/próximas e cache em `data/book_positions/` (ambos ignorados pelo Git). Continuações SAN são anexadas aos diagramas somente quando os lances são legais nessa posição. Abaixo do tabuleiro, é possível restaurar o diagrama ou a linha original depois de testar alternativas. A partida principal e suas análises permanecem independentes do tabuleiro do livro.
+
+O reconhecimento visual usa [chessvision 0.13.0](https://github.com/harshitpawar64/chessvision) (GPL-3.0), com seu classificador ONNX incluído no pacote e OpenCV. Nenhuma página ou imagem é enviada a serviços externos. As posições reconhecidas passam por limites de confiança e validação de xadrez; páginas sem reconhecimento seguro mantêm o tabuleiro atual. Turno e roques ausentes são indicados na interface. PGNs são divididos por partidas completas, preservando posições iniciais personalizadas e a navegação dos lances.
+
+Validação: `.venv/Scripts/python.exe -m pytest tests/test_book_positions.py tests/test_book_positions_ui.py tests/test_library_home.py -q`. Os testes incluem reconhecimento real de PDF digitalizado, vários diagramas, cache/preparação antecipada e navegação entre páginas pela interface.

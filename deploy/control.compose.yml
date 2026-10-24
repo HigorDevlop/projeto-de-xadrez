@@ -1,0 +1,24 @@
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: deploy/control.Dockerfile
+    volumes:
+      - control-data:/data
+    restart: unless-stopped
+  https:
+    image: caddy:2
+    environment:
+      COACH_DOMAIN: ${COACH_DOMAIN:?Defina o dominio HTTPS do servidor}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    restart: unless-stopped
+volumes:
+  control-data:
+  caddy-data:
+  caddy-config:

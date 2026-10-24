@@ -1,18 +1,18 @@
-# Acervo: marfim, floresta e tipografia editorial, com fontes locais.
+# Coach Chess: tema escuro unificado e fontes locais.
 [theme]
-base = "light"
-primaryColor = "#176B4A"
-backgroundColor = "#F5F3ED"
-secondaryBackgroundColor = "#ECEFE8"
-textColor = "#202B26"
-borderColor = "#D9DED5"
+base = "dark"
+primaryColor = "#ff8000"
+backgroundColor = "#0a0a0a"
+secondaryBackgroundColor = "#232323"
+textColor = "#f5f5f5"
+borderColor = "#343434"
 baseRadius = "9px"
 font = "sans-serif"
-headingFont = "serif"
+headingFont = "sans-serif"
 
 [theme.sidebar]
-backgroundColor = "#FFFEFA"
-secondaryBackgroundColor = "#ECEFE8"
+backgroundColor = "#121212"
+secondaryBackgroundColor = "#232323"
 
 [server]
 address = "127.0.0.1"

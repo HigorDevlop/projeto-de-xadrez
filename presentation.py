@@ -3,6 +3,7 @@ from html import escape
 import streamlit as st
 from chess_review import CATEGORIES
 from design_tokens import palette
+from cursor_theme import CURSOR_STYLE
 
 
 def classification_legend():
@@ -12,7 +13,10 @@ def classification_legend():
 
 
 def brand():
-    st.html('<div class="club-brand"><span class="club-emblem" aria-hidden="true">♞</span><div><strong>Acervo</strong><small>CLUBE DE ESTUDO</small></div></div>')
+    from pathlib import Path
+    from base64 import b64encode
+    logo = b64encode((Path(__file__).parent / 'assets/coach-chess.svg').read_bytes()).decode()
+    st.html('<div class="club-brand"><img class="club-emblem" alt="Coach Chess" src="data:image/svg+xml;base64,'+logo+'"/><div><strong>Coach Chess</strong><small>ESTUDO DE XADREZ</small></div></div>')
 
 
 def page_heading(name):
@@ -33,19 +37,20 @@ def page_heading(name):
 
 
 def apply_theme(dark):
+    dark = True
     p = palette(dark)
     variables = ';'.join(f'--chess-{key.replace("_", "-")}:{value}' for key,value in p.items())
     move_colors = ''.join(f'[class*="st-key-move_quality_{key}_"] button{{background:{c.color}!important;color:{c.ink}!important;border:2px solid {c.ink}!important;min-height:44px}}[class*="st-key-move_quality_{key}_"] button *{{color:{c.ink}!important;background:transparent!important}}' for key,c in CATEGORIES.items())
-    st.html('<style>:root{color-scheme:'+('dark' if dark else 'light')+';'+variables+'}'+STYLE+move_colors+'</style>')
+    st.html('<style>:root{color-scheme:'+('dark' if dark else 'light')+';'+variables+'}'+STYLE+SURFACE_STYLE+move_colors+CURSOR_STYLE+'</style>')
 
 
 STYLE = '''
-:root{--club-ui:'Segoe UI',system-ui,-apple-system,sans-serif;--club-display:Georgia,'Times New Roman',serif}
+:root{--club-ui:'Segoe UI',system-ui,-apple-system,sans-serif;--club-display:'Segoe UI',system-ui,-apple-system,sans-serif}
 .stApp{color:var(--chess-ink);background:var(--chess-background);font-family:var(--club-ui)}
 .stMainBlockContainer{max-width:1600px;padding:4.8rem 4.6rem 4rem}
 [data-testid="stHeader"]{background:var(--chess-background);border-bottom:1px solid var(--chess-border);height:58px}
 [data-testid="stSidebar"]{background:var(--chess-surface);color:var(--chess-ink);border-right:1px solid var(--chess-border)}
-[data-testid="stSidebarContent"]{padding-top:1.3rem}
+[data-testid="stSidebarContent"]{padding-top:1.3rem}.club-brand .club-emblem{background:#000;color:#fff;padding:0;object-fit:contain}.stApp [data-testid="stExpander"] details,.stApp [data-testid="stForm"],.stApp [data-testid="stVerticalBlockBorderWrapper"]{background:linear-gradient(145deg,#1b1b1b,#121212);border:1px solid #2b2b2b}
 .stApp h1,.stApp h2,.stApp h3{color:var(--chess-ink);font-family:var(--club-display);letter-spacing:-.035em;font-weight:500;line-height:1.2}
 .stApp h1{font-size:clamp(2rem,3.2vw,3.25rem)}.stApp h2{font-size:1.8rem}.stApp h3{font-size:1.4rem}
 .stApp p,.stApp label,.stApp summary,.stApp small,.stApp button,.stApp [data-testid="stMetricValue"]{color:var(--chess-ink);font-family:var(--club-ui)}
@@ -53,7 +58,7 @@ STYLE = '''
 .stApp [data-testid="stIconMaterial"]{color:inherit}.stApp a{color:var(--chess-accent);text-underline-offset:4px}
 .stAppDeployButton,[data-testid="stAppDeployButton"],[data-testid="stMainMenu"],#MainMenu{display:none}
 .club-brand{display:flex;gap:12px;align-items:center;margin:2px 0 28px}.club-emblem{display:grid;place-items:center;width:44px;height:48px;background:var(--chess-accent-soft);color:var(--chess-accent);border-radius:10px;font:36px/1 Georgia,serif}
-.club-brand strong{display:block;font:500 29px/1.1 var(--club-display);letter-spacing:-.04em;color:var(--chess-ink)}
+.club-brand strong{display:block;font:650 24px/1.1 var(--club-display);letter-spacing:-.04em;color:var(--chess-ink)}
 .club-brand small{display:block;font:650 9px/1.8 var(--club-ui);letter-spacing:.2em;color:var(--chess-muted)}
 .st-key-workspace_identity{gap:16px;padding-bottom:18px;border-bottom:1px solid var(--chess-border);margin-bottom:12px}
 .st-key-sidebar_profile{margin:2px 0 12px;padding:4px 0 14px;border-bottom:1px solid var(--chess-border);gap:12px}.st-key-sidebar_profile p{line-height:1.25;margin:0}
@@ -89,6 +94,19 @@ STYLE = '''
 .stApp [data-testid="stSidebar"] [data-testid="stPageLink"] a:hover{background:var(--chess-soft);color:var(--chess-ink)}
 .stApp [data-testid="stSidebar"] a[aria-current="page"]{background:var(--chess-accent-soft)!important;color:var(--chess-accent)!important;box-shadow:inset 3px 0 var(--chess-accent);font-weight:700}
 .st-key-sidebar_navigation{gap:3px;margin-bottom:18px}.stApp [data-testid="stSidebar"] [data-testid="stExpander"] details{background:transparent}.stApp [data-testid="stSidebar"] button{font-size:13px}
+
+.stApp [data-testid="stSidebar"] [data-testid="stPageLink"] a{position:relative;border:1px solid #ffffff0c;border-radius:12px;background:linear-gradient(135deg,#262721,#191c18);box-shadow:inset 0 1px #ffffff09,0 3px 7px #0004;padding:11px 14px;min-height:43px;color:#c9cbbf;transition:transform .18s,box-shadow .18s,border-color .18s,background .18s}
+.stApp [data-testid="stSidebar"] [data-testid="stPageLink"] a:hover{transform:translateX(3px) translateY(-1px);border-color:#c4ab6866;background:linear-gradient(135deg,#34372b,#23281e);box-shadow:inset 0 1px #ffffff13,0 6px 13px #0006;color:#f1e3c4}
+.stApp [data-testid="stSidebar"] a[aria-current="page"]{border-color:#b69e6355!important;box-shadow:inset 3px 0 #d5b777,inset 0 1px #ffffff09,0 4px 12px #0004;background:linear-gradient(135deg,#423b29,#282b20)!important;color:#f0d6a5!important}
+.st-key-sidebar_tactics button{justify-content:flex-start;text-align:left;min-height:43px;border-radius:12px;background:linear-gradient(135deg,#262721,#191c18);color:#c9cbbf;padding:11px 14px}.st-key-sidebar_tactics button:hover{transform:translateX(3px) translateY(-1px)}.st-key-sidebar_navigation{gap:7px;padding-right:4px}.stApp [data-testid="stSidebar"] button,.stApp [data-testid="stSidebar"] summary{box-shadow:inset 0 1px #ffffff0a,0 4px 9px #0004;transition:transform .18s,box-shadow .18s,border-color .18s}.stApp [data-testid="stSidebar"] button:hover,.stApp [data-testid="stSidebar"] summary:hover{transform:translateY(-2px);border-color:#b8a66a66;box-shadow:inset 0 1px #ffffff16,0 7px 14px #0005}
+.st-key-sidebar_tactics button{justify-content:flex-start!important;text-align:left!important}.st-key-sidebar_tactics button>div{display:flex;justify-content:flex-start!important;width:100%;gap:8px}.st-key-sidebar_tactics button [data-testid="stMarkdownContainer"]{text-align:left!important}
+.stApp [data-testid="stSidebar"] [class*="st-key-sidebar_nav_"][class*="_active"] a,.stApp [data-testid="stSidebar"] .st-key-sidebar_tactics button[kind="primary"]{position:relative;overflow:hidden;border:1px solid #d3b57588!important;background:linear-gradient(125deg,#4a412c,#292e21)!important;color:#f3dba7!important;box-shadow:inset 3px 0 #dfbf7c,inset 0 1px #ffffff12,0 4px 14px #b3984b18!important;animation:sidebar-selected-glow 1.5s ease-in-out 2}
+.stApp [data-testid="stSidebar"] .st-key-sidebar_tactics button[kind="primary"] p{color:#f3dba7!important;background:transparent!important}
+.stApp [data-testid="stSidebar"] [class*="st-key-sidebar_nav_"][class*="_active"] a:after,.stApp [data-testid="stSidebar"] .st-key-sidebar_tactics button[kind="primary"]:after{content:'';position:absolute;inset:0;pointer-events:none;background:linear-gradient(110deg,transparent 20%,#efd49b20 50%,transparent 80%);transform:translateX(-120%);animation:sidebar-selected-shine .75s ease-out}
+@keyframes sidebar-selected-glow{0%,100%{filter:brightness(1)}50%{filter:brightness(1.2)}}@keyframes sidebar-selected-shine{to{transform:translateX(120%)}}
+@media(prefers-reduced-motion:reduce){.stApp [data-testid="stSidebar"] [class*="st-key-sidebar_nav_"][class*="_active"] a,.stApp [data-testid="stSidebar"] .st-key-sidebar_tactics button[kind="primary"],.stApp [data-testid="stSidebar"] [class*="st-key-sidebar_nav_"][class*="_active"] a:after,.stApp [data-testid="stSidebar"] .st-key-sidebar_tactics button[kind="primary"]:after{animation:none!important}}
+.st-key-session_settings{background:linear-gradient(140deg,#292b23,#191d17);border-radius:13px;box-shadow:inset 0 1px #ffffff09,0 5px 15px #0003;padding:14px}
+@media(prefers-reduced-motion:reduce){.stApp [data-testid="stSidebar"] [data-testid="stPageLink"] a,.stApp [data-testid="stSidebar"] button,.stApp [data-testid="stSidebar"] summary{transition:none}.stApp [data-testid="stSidebar"] [data-testid="stPageLink"] a:hover,.stApp [data-testid="stSidebar"] button:hover,.stApp [data-testid="stSidebar"] summary:hover{transform:none}}
 .stApp [data-testid="stSidebar"],.st-key-notes_moves,.st-key-panel_moves{scrollbar-width:thin;scrollbar-color:var(--chess-border) transparent}
 .st-key-analysis_toolbar{padding:12px;background:var(--chess-surface);border:1px solid var(--chess-border);border-radius:12px;margin:8px 0 16px;gap:10px}.st-key-analysis_toolbar button{min-height:44px}
 .st-key-analysis_summary,.st-key-analysis_summary_pending{border-radius:14px!important;background:var(--chess-surface);border-color:var(--chess-border)!important}.st-key-analysis_summary{position:sticky;top:78px}
@@ -115,4 +133,70 @@ STYLE = '''
 [data-testid="stFileUploaderDropzoneInstructions"] small{font-size:0}[data-testid="stFileUploaderDropzoneInstructions"] small::after{content:'Use um dos formatos indicados no campo';font-size:12px;color:var(--chess-muted)}
 @media(max-width:700px){.stMainBlockContainer{padding:4.4rem 1.2rem 2rem}.st-key-page_heading{padding:12px 0 18px}.st-key-page_heading h1{font-size:2.15rem}.st-key-question_launcher{right:14px}.quality-legend{grid-template-columns:1fr}.st-key-study_position,.st-key-analysis_summary{position:static}.workspace-wordmark{display:none}}
 @media(prefers-reduced-motion:reduce){.stApp button,.stApp a,[class*="st-key-tactic_card_"]{transition:none!important;transform:none!important}}
+'''
+
+
+# A shared surface treatment: only panels and controls, never board squares or text nodes.
+SURFACE_STYLE = r'''
+:root {
+  --club-panel: linear-gradient(150deg, #242424 0%, #1c1c1c 45%, #181818 100%);
+  --club-relief: inset 0 1px 0 #ffffff0d, inset 0 -1px 0 #00000040,
+                 0 3px 8px #00000040, 0 12px 24px #0000001f;
+}
+.stApp.stApp {background:#0a0a0a!important}
+/* Keep the sidebar canvas separate from its raised account and settings panels. */
+.stApp.stApp [data-testid="stSidebar"] {background:#121212}
+.stApp.stApp :is(
+  [data-testid="stVerticalBlockBorderWrapper"],
+  [data-testid="stForm"], [data-testid="stExpander"] details,
+  [data-testid="stMetric"], [data-testid="stChatMessage"],
+  .st-key-sidebar_account_card, .st-key-analysis_source,
+  .st-key-analysis_toolbar, .st-key-centered_board,
+  .st-key-analysis_summary, .st-key-analysis_summary_pending,
+  .st-key-study_library, .st-key-study_reading_panel, .st-key-study_position,
+  .st-key-routine_editor, .st-key-tactic_showcase,
+  [class*="st-key-book_cover_"], [class*="st-key-tactic_card_"],
+  .reference-rank, .reference-profile-card, .quality-accuracy,
+  .prep-profile, .prep-empty, .book-page
+) {
+  background:var(--club-panel)!important;
+  box-shadow:var(--club-relief)!important;
+  border-color:#383838!important;
+}
+.stApp.stApp [data-testid="stMetric"] {
+  border:1px solid #383838;border-radius:14px;padding:16px;
+}
+/* Colored banners retain their meaning while receiving the same edge lighting. */
+.stApp.stApp :is(.reference-banner, .prep-plan, .prep-live-cover, [data-testid="stAlert"]) {
+  box-shadow:var(--club-relief);
+}
+.stApp.stApp :is([data-baseweb="input"], [data-baseweb="select"]>div,
+  [data-baseweb="textarea"], [data-testid="stFileUploaderDropzone"], [data-testid="stCode"]) {
+  background:#1c1c1c!important;
+  border-color:#3b3b3b!important;
+  box-shadow:inset 0 1px 3px #00000050, 0 1px 0 #ffffff09;
+}
+.stApp.stApp :is(input, textarea, [data-baseweb="base-input"]) {background:transparent}
+.stApp.stApp button[kind="secondary"] {
+  background:linear-gradient(160deg,#292929,#1c1c1c);
+  box-shadow:inset 0 1px 0 #ffffff0c,0 2px 4px #00000030;
+}
+.stApp.stApp button[kind="secondary"]:hover {border-color:var(--chess-accent);background:#2c2c2c}
+/* Analysis places the board first, with controls and reports underneath. */
+.stApp:has(.st-key-analysis_board_focus) .stMainBlockContainer {padding-top:4.2rem}
+.st-key-analysis_board_focus {max-width:1000px;margin:0 auto;gap:4px}
+.st-key-analysis_board_focus h3 {font-size:22px;padding:0 0 4px}
+.stApp:has(.st-key-analysis_board_focus) .st-key-analysis_toolbar {max-width:1000px;margin:8px auto 12px}
+.stApp:has(.st-key-analysis_board_focus) .st-key-analysis_summary {position:static;max-width:1000px;margin:auto;padding:20px}
+.stApp.stApp .st-key-analysis_editor_controls {max-width:1000px;margin:12px auto 20px;padding:24px!important;background:var(--club-panel)!important;box-shadow:var(--club-relief);border:1px solid #383838!important;border-radius:18px!important;box-sizing:border-box}
+.st-key-analysis_editor_controls h3{font-size:23px!important;letter-spacing:-.04em;padding:0;margin:0}
+.st-key-analysis_editor_controls hr{margin:4px 0;border-color:#ffffff0c}
+.st-key-analysis_editor_settings{padding:16px 18px;background:#ffffff03;border:1px solid #ffffff09;border-radius:14px}
+.st-key-analysis_editor_settings [data-testid="stCheckbox"] p{font-size:13px}
+.st-key-analysis_editor_actions{gap:12px}
+.st-key-analysis_secondary,.st-key-analysis_legend{max-width:1000px;width:100%;margin:0 auto;box-sizing:border-box}
+@media(max-width:700px){.stApp.stApp .st-key-analysis_editor_controls{padding:16px!important}.st-key-analysis_editor_settings{padding:14px}}
+@media(max-width:700px){.stApp:has(.st-key-analysis_board_focus) .stMainBlockContainer{padding:4rem .8rem 2rem}}
+/* Keep actual book pages paper-colored and legible. */
+.stApp.stApp .st-key-book_page_reader {background:#fffefa!important}
 '''

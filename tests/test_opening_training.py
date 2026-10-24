@@ -53,6 +53,20 @@ def test_catalog_has_closed_consistent_legal_paths_and_exact_counts():
             assert board.turn != (course['side'] == 'white')
 
 
+def test_retry_clears_previous_red_marks_without_forgetting_error():
+    from opening_training_state import _restart_recall
+    plan = plan_for()
+    session = session_for(plan)
+    key = session['line_id']
+    session.update(display_marks={'0':'correct','2':'wrong'}, marks={'2':'wrong'},
+                   feedback={'square':'d4','correct':False}, failed=[key], had_error=True)
+    _restart_recall(plan, session, retry=True)
+    assert session['display_marks'] == {}
+    assert session['marks'] == {}
+    assert session['feedback'] is None
+    assert session['failed'] == [key] and session['had_error']
+
+
 @pytest.mark.parametrize('ids', [[], ['london']*2, ['bad'], [x['id'] for x in catalog()][:5], None])
 def test_selection_is_validated_on_server(ids):
     with pytest.raises(ValueError):
@@ -105,7 +119,7 @@ def test_error_restarts_same_line_immediately_without_arrows_and_rejects_stale_e
     assert session['line_id'] == key and session['mastered'] == []
 
 
-def test_quiz_error_repeats_question_and_all_questions_must_be_correct():
+def test_quiz_error_requeues_question_and_all_questions_must_be_correct():
     plan = plan_for()
     session = session_for(plan)
     play_until(plan, session, lambda: session['mode'] == 'quiz')
@@ -114,7 +128,9 @@ def test_quiz_error_repeats_question_and_all_questions_must_be_correct():
     wrong = next(m.uci() for m in board.legal_moves if m.uci() != expected_move(plan, session))
     assert submit_move(plan, session, event(session, wrong), 1)
     settle(plan, session)
-    assert session['mode'] == 'quiz' and session['quiz_queue'] == pending and not session['hint']
+    assert session['mode'] == 'quiz' and session['quiz_queue'][0] == pending[1] and not session['hint']
+    assert sorted(session['quiz_queue']) == sorted(pending)
+    assert session['quiz_states'][str(pending[0])] == 'wrong'
     key = session['line_id']
     play_until(plan, session, lambda: session['line_id'] != key)
     assert key in session['recovered'] and plan['retention'][key]['level'] == 0

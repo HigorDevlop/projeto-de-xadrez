@@ -3,6 +3,7 @@ from html import escape
 
 import chess
 import streamlit as st
+from opening_repetition import learner_plies
 
 
 def lesson_panel(line, session, message):
@@ -20,7 +21,7 @@ def lesson_panel(line, session, message):
     }
     st.html('<p class="lesson-note">' + descriptions[mode] + '</p>')
     marks = session.get('display_marks', session.get('marks', {}))
-    plies = range(0 if line['side'] == 'white' else 1, len(line['moves']), 2)
+    plies = learner_plies(line)
     counts = {key: sum(marks.get(str(ply), 'pending') == key for ply in plies)
               for key in ('pending', 'wrong', 'unknown', 'correct')}
     labels = {'pending': 'A fazer', 'wrong': 'Erro', 'unknown': 'Com dica', 'correct': 'Certo'}

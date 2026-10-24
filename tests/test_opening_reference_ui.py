@@ -78,11 +78,21 @@ def test_reference_wrong_move_completion_and_streak(browser_page,course_server):
     else: pytest.fail('A linha não concluiu')
     assert stages=={'learn','recall','quiz'}
     expect(page.get_by_text('Bom trabalho!',exact=True)).to_be_visible()
+    awards=page.locator('.st-key-opening_award_status')
+    expect(awards.locator('.achievement-unlock')).not_to_have_count(0)
+    columns=page.locator('.st-key-opening_lesson_columns').bounding_box()
+    assert awards.bounding_box()['y']>=columns['y']+columns['height']-1
+    expect(awards.locator('img.achievement-medal').first).to_be_visible()
+    assert awards.locator('img.achievement-medal').first.evaluate('(img)=>img.complete&&img.naturalWidth>0')
     page.screenshot(path=str(ROOT/'tests/artifacts/reference-complete.png'),full_page=True)
     page.get_by_role('button',name='Continuar',exact=True).click()
     expect(page.get_by_role('heading',name='Você salvou seu streak!',exact=True)).to_be_visible()
     page.screenshot(path=str(ROOT/'tests/artifacts/reference-streak.png'),full_page=True)
     assert sum(item['learned'] for item in saved(folder)['practice_progress'].values())==1
+    page.get_by_role('button',name='Continuar',exact=True).click()
+    expect(page.locator('.training-hint')).to_have_count(1)
+    assert current(folder)['mode']=='learn'
+    assert current(folder)['line_id']!=session['line_id']
     page.reload()
     page.locator('[data-id=italian]').click()
     expect(page.locator('.node.learned')).to_have_count(1)
@@ -114,12 +124,12 @@ def test_reference_endgame_is_playable(browser_page,course_server):
     expect.set_options(timeout=30000)
     page=browser_page
     page.goto(course_server[0])
-    page.get_by_role('button',name='Finais',exact=True).click(timeout=30000)
+    page.locator('.st-key-reference_nav_Finais button').click(timeout=30000)
     expect(page.get_by_text('Encontre o mate em um lance.',exact=True)).to_be_visible()
     page.locator('[data-square=g6]').click()
     page.locator('[data-square=g7]').click()
     expect(page.get_by_text('Bom trabalho!',exact=True)).to_be_visible()
     page.get_by_role('button',name='Recomeçar',exact=True).click()
     expect(page.get_by_text('Encontre o mate em um lance.',exact=True)).to_be_visible()
-    page.get_by_role('button',name='Aberturas',exact=True).click()
+    page.locator('.st-key-reference_nav_Aberturas button').click()
     expect(page.locator('.home')).to_be_visible()

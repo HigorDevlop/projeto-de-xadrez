@@ -24,8 +24,13 @@ def prepared_positions(moves, flip):
 def quiz_data(line, session):
     if session['mode'] != 'quiz' or session['phase'] != 'answer':
         return None
-    return dict(positions=prepared_positions(tuple(line['moves']), line['side'] == 'black'),
+    positions=prepared_positions(tuple(line['moves']), line['side'] == 'black')
+    if session.get('quiz_bank'):
+        positions={key:prepared_positions(tuple(item['line']['moves']),item['line']['side']=='black')[str(item['ply'])]
+                   for key,item in session['quiz_bank'].items()}
+    return dict(positions=positions,
                 queue=list(session['quiz_queue']), retry=list(session['quiz_retry']),
+                states=dict(session.get('quiz_states', {})),
                 assisted=session['hint'])
 
 

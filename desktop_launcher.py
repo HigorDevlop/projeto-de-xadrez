@@ -1,7 +1,9 @@
 """Open Acervo in a desktop window using the installed Edge or Chrome."""
 from pathlib import Path
 import ctypes
+import hashlib
 import importlib.util
+import json
 import os
 import socket
 import subprocess
@@ -11,6 +13,39 @@ from urllib.request import urlopen
 import webbrowser
 
 ROOT = Path(__file__).resolve().parent
+
+
+def desktop_state():
+    return Path(os.environ.get('COACH_DESKTOP_STATE',ROOT/'data/desktop'))
+
+
+def _source_version():
+    digest=hashlib.sha256()
+    assets=[p for p in (ROOT/'assets').glob('*') if p.suffix in ('.js','.css','.svg')]
+    for path in sorted([*ROOT.glob('*.py'),*assets]):
+        digest.update(str(path.relative_to(ROOT)).encode())
+        digest.update(path.read_bytes())
+    return digest.hexdigest()
+
+
+def _saved_server():
+    try:
+        saved=json.loads((desktop_state()/'server.json').read_text(encoding='utf8'))
+        port,pid=int(saved['port']),int(saved['pid'])
+        if not 1024<=port<=65535 or pid<=0:return None
+        if os.name=='nt':
+            command=subprocess.run(['powershell','-NoProfile','-Command',
+                f"(Get-CimInstance Win32_Process -Filter 'ProcessId = {pid}').CommandLine"],
+                capture_output=True,text=True,timeout=5,creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0)).stdout
+        else:
+            command=Path(f'/proc/{pid}/cmdline').read_text().replace('\0',' ')
+        if str(ROOT/'app.py').casefold() not in command.casefold() or f'--server.port={port}' not in command:
+            return None
+        url=f'http://127.0.0.1:{port}'
+        with urlopen(url+'/_stcore/health',timeout=1) as response:
+            if response.read()==b'ok':return url
+    except (OSError,ValueError,KeyError,subprocess.SubprocessError):
+        return None
 
 
 def browser_executable():
@@ -30,14 +65,36 @@ def browser_executable():
 def start_server():
     if importlib.util.find_spec('streamlit') is None:
         raise RuntimeError('Execute iniciar.bat uma vez para instalar as dependências. Depois abra Acervo Desktop.bat.')
+    version=_source_version()
+    if saved:=_saved_server():
+        record=json.loads((desktop_state()/'server.json').read_text(encoding='utf8'))
+        if record.get('source_version')==version:return saved,None
+        # _saved_server verifies this installation's app path, PID, port and health.
+        # Reload imported modules after an update, keeping the browser origin stable.
+        if os.name=='nt':
+            subprocess.run(['taskkill','/PID',str(int(record['pid'])),'/T','/F'],
+                capture_output=True,check=True,creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0))
+        else:
+            import signal
+            os.kill(int(record['pid']),signal.SIGTERM)
+        deadline=time.monotonic()+10
+        while time.monotonic()<deadline:
+            try:
+                with socket.create_connection(('127.0.0.1',int(record['port'])),timeout=.2):pass
+            except OSError:break
+            time.sleep(.1)
+    try:
+        preferred=int(json.loads((desktop_state()/'server.json').read_text(encoding='utf8'))['port'])
+        if not 1024<=preferred<=65535:preferred=8501
+    except (OSError,ValueError,KeyError):preferred=8501
     with socket.socket() as sock:
         try:
-            sock.bind(('127.0.0.1', 8501))
+            sock.bind(('127.0.0.1', preferred))
         except OSError:
             sock.bind(('127.0.0.1', 0))
         port = sock.getsockname()[1]
     url = f'http://127.0.0.1:{port}'
-    log_dir = ROOT / 'data' / 'desktop'
+    log_dir = desktop_state()
     log_dir.mkdir(parents=True, exist_ok=True)
     with (log_dir / 'server.log').open('a', encoding='utf-8') as log:
         process = subprocess.Popen(
@@ -55,6 +112,7 @@ def start_server():
             try:
                 with urlopen(url + '/_stcore/health', timeout=1) as response:
                     if response.read() == b'ok':
+                        (log_dir/'server.json').write_text(json.dumps({'pid':process.pid,'port':port,'source_version':version}),encoding='utf8')
                         return url, process
             except OSError:
                 pass
@@ -72,13 +130,19 @@ def main():
         url += '/?view=aberturas'
         browser = browser_executable()
         if browser:
+            # Keep the app in its own browser process. An already open personal
+            # browser can otherwise ignore the startup fullscreen flags.
+            profile = desktop_state() / 'browser-profile'
+            profile.mkdir(parents=True, exist_ok=True)
             # A hidden pythonw launcher must still show the interactive window.
             startup = None
             if os.name == 'nt':
                 startup = subprocess.STARTUPINFO()
                 startup.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-                startup.wShowWindow = 1  # SW_SHOWNORMAL
-            subprocess.Popen([str(browser), '--app=' + url, '--window-size=1440,960'],
+                startup.wShowWindow = 3  # SW_SHOWMAXIMIZED
+            subprocess.Popen([str(browser), '--user-data-dir=' + str(profile.resolve()),
+                              '--no-first-run', '--no-default-browser-check',
+                              '--new-window', '--app=' + url, '--start-fullscreen'],
                              startupinfo=startup)
         else:
             webbrowser.open(url)

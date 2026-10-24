@@ -12,8 +12,8 @@ _ROADMAP = st.components.v2.component(
     .trail{max-height:490px;overflow:auto;padding:20px 12px;scrollbar-width:thin;background:var(--soft);border-radius:20px}
     .path{position:relative;margin:auto}.path>svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
     .days{display:grid;position:relative;gap:32px 24px;justify-items:center}
-    .day{appearance:none;box-sizing:border-box;width:100%;max-width:104px;aspect-ratio:1;border:2px solid var(--border);border-radius:16px;background:var(--surface);color:var(--ink);font:600 16px/1.3 'Segoe UI',sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;box-shadow:0 5px 0 var(--border)}
-    .day small{font-size:11px;font-weight:500}.day strong{font-size:24px}.day:disabled{cursor:default;color:var(--muted)}
+    .day{appearance:none;box-sizing:border-box;width:100%;max-width:104px;aspect-ratio:1;border:2px solid var(--border);border-radius:16px;background:var(--surface);color:var(--ink);font:600 16px/1.3 'Segoe UI',sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:var(--club-cursor-link,pointer);box-shadow:0 5px 0 var(--border)}
+    .day small{font-size:11px;font-weight:500}.day strong{font-size:24px}.day:disabled{cursor:var(--club-cursor-default,default);color:var(--muted)}
     .day.current{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);box-shadow:0 5px 0 var(--border),0 0 0 6px var(--surface)}
     .day.done{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
     .day:focus-visible{outline:3px solid var(--gold);outline-offset:5px}.day:not(:disabled):hover{filter:brightness(1.08)}

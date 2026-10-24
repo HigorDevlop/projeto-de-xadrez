@@ -10,15 +10,15 @@ _COPY = st.components.v2.component(
     css='''
     textarea {display:block;width:100%;height:260px;box-sizing:border-box;margin-top:12px;
       padding:16px;border:1px solid var(--border);border-radius:12px;background:var(--surface);color:var(--ink);font:14px/1.6 monospace}
-    button {background:var(--surface);color:var(--ink);border:1px solid var(--border);border-radius:12px;padding:10px 20px;cursor:pointer}
+    button {background:var(--surface);color:var(--ink);border:1px solid var(--border);border-radius:12px;padding:10px 20px;cursor:var(--club-cursor-link,pointer)}
     p {color:var(--ink);font:14px sans-serif}
     ''',
     js='''
     export default function({data,parentElement}) {
       const field=parentElement.querySelector('textarea'), button=parentElement.querySelector('button');
-      (parentElement.host ?? parentElement).style.setProperty('--surface',data.dark?'#1A2720':'#FFFEFA');
-      (parentElement.host ?? parentElement).style.setProperty('--ink',data.dark?'#EDF3ED':'#202B26');
-      (parentElement.host ?? parentElement).style.setProperty('--border',data.dark?'#354A3C':'#D9DED5');
+      (parentElement.host ?? parentElement).style.setProperty('--surface',data.dark?'#121212':'#FFFEFA');
+      (parentElement.host ?? parentElement).style.setProperty('--ink',data.dark?'#f5f5f5':'#202B26');
+      (parentElement.host ?? parentElement).style.setProperty('--border',data.dark?'#2b2b2b':'#D9DED5');
       field.value=data.pgn;
       button.onclick=async()=>{
         const status=parentElement.querySelector('p');

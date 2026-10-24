@@ -46,6 +46,33 @@ def test_learn_recall_quiz_unlocks_next_line_and_schedules_review():
     assert course_lines(plan)[0]['mastery']==1  # No same-day score farming.
 
 
+def test_train_teaches_each_new_line_and_reviews_only_learned_lines():
+    plan = new_course()
+    first = course_lines(plan)[0]['id']
+    session = begin_line(plan, first, 'train')
+    assert session['mode'] == 'learn'
+    solve(plan, session)
+    second = course_lines(plan)[1]['id']
+    assert begin_line(plan, second, 'train')['mode'] == 'learn'
+    assert begin_line(plan, first, 'train')['mode'] == 'learn'
+
+
+def test_expanded_courses_preserve_old_progress_and_unlock_new_material():
+    plan = new_course()
+    from opening_repertoires import _COURSES, catalog
+    old_count = len(next(row for row in _COURSES if row[0] == 'italian')[4])
+    assert len(course_lines(plan)) >= 5
+    for row in course_lines(plan)[:4]:
+        plan['practice_progress'][row['id']]['learned'] = True
+        plan['course_cycle']['completed'].append(row['branch'])
+    restored = select_course(plan, 'course-test', 'italian')
+    next_line = next(row for row in course_lines(restored) if not row['learned'])
+    assert next_line['unlocked']
+    assert begin_line(restored, next_line['id'], 'train')['mode'] == 'learn'
+    assert all(line.get('lesson_moves',5) in range(5,99,2) for course in catalog() for line in course['lines'])
+    assert len(next(course for course in catalog() if course['id']=='london')['lines']) > 10
+
+
 def test_switching_course_and_reload_keeps_each_board(tmp_path,monkeypatch):
     monkeypatch.setenv('ACERVO_PREPARATION_DIR',str(tmp_path))
     plan = new_course()

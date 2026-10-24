@@ -64,8 +64,7 @@ def test_repeated_errors_restart_and_allow_completion(browser_page, course_serve
     url, folder = course_server
     page.set_viewport_size(dict(width=width, height=1000))
     page.goto(url)
-    expect(page.get_by_role('heading', name='Como subir no ranking de aberturas')).to_be_visible()
-    expect(page.get_by_text('Inatividade:', exact=False)).to_be_visible()
+    expect(page.locator('.home')).to_be_visible()
     page.locator(f'[data-id={course}]').click()
     page.get_by_role('button', name='Treinar', exact=True).click()
     expect(page.locator('.board')).to_be_visible()
@@ -81,13 +80,17 @@ def test_repeated_errors_restart_and_allow_completion(browser_page, course_serve
         play(page, folder, session, wrong, by_drag=attempt % 2 == 0)
         expect(page.locator('.opening-mark.wrong')).to_have_count(1)
         assert current(folder)['history'] == initial_history
+        page.get_by_role('button',name='Próximo',exact=True).click()
     page.screenshot(path=str(ROOT / f'tests/artifacts/aberturas-erros-{width}.png'), full_page=True)
     # Complete the guided phase by making every learner move.
     guided_deadline = time.monotonic() + 60
     while current(folder)['mode'] == 'learn':
         assert time.monotonic() < guided_deadline, 'A fase guiada não terminou'
         session = current(folder)
-        if session['phase'] == 'answer':
+        if session.get('ui_checkpoint'):
+            page.get_by_role('button',name='Continuar',exact=True).click()
+            page.wait_for_timeout(100)
+        elif session['phase'] == 'answer':
             play(page, folder, session, expected_move(saved(folder), session))
         else:
             page.wait_for_timeout(100)
@@ -102,9 +105,10 @@ def test_repeated_errors_restart_and_allow_completion(browser_page, course_serve
         wrong = next(move.uci() for move in board.legal_moves if move.uci() != expected_move(saved(folder), session))
         play(page, folder, session, wrong, by_drag=attempt % 2 == 0)
         # The next repetition is a fresh playable position, never a pending lock.
+        page.get_by_role('button',name='Próximo',exact=True).click()
         repeated = wait_answer(page, folder, 'recall')
         assert repeated['history'] == initial_history and repeated['had_error'], (folder/'protocol.jsonl').read_text(encoding='utf8')[-4000:]
-        assert page.get_by_text('posições resolvidas', exact=False).count() == 1
+        expect(page.get_by_role('progressbar',name='Progresso da aula')).to_be_visible()
     toolbar = page.locator('.st-key-opening_lesson_toolbar').bounding_box()
     board_box = page.locator('.board').bounding_box()
     assert toolbar['y'] + toolbar['height'] <= board_box['y']
@@ -116,14 +120,18 @@ def test_repeated_errors_restart_and_allow_completion(browser_page, course_serve
         if saved(folder).get('practice_ranking', {}).get('units') == 2:
             break
         session = current(folder)
-        if session['phase'] == 'answer':
+        if session.get('ui_checkpoint'):
+            page.get_by_role('button',name='Continuar',exact=True).click()
+            page.wait_for_timeout(100)
+        elif session['phase'] == 'answer':
             if session['mode'] == 'quiz' and quiz_errors < 3:
                 board = board_for(session)
                 wrong = next(move.uci() for move in board.legal_moves if move.uci() != expected_move(saved(folder), session))
                 play(page, folder, session, wrong, by_drag=True)
                 quiz_errors += 1
                 repeated = wait_answer(page, folder, 'quiz')
-                assert repeated['quiz_queue'] == session['quiz_queue']
+                assert repeated['quiz_states'][str(session['ply'])] == 'wrong'
+                assert repeated['had_error']
             else:
                 play(page, folder, session, expected_move(saved(folder), session))
         else:

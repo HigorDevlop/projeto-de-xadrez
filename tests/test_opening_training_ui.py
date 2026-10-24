@@ -110,13 +110,13 @@ def repertoire_server(tmp_path):
 
 def test_preparation_restores_indicators_and_cancels_from_trail(tmp_path, monkeypatch):
     monkeypatch.setenv('ACERVO_PREPARATION_DIR',str(tmp_path))
-    app = AppTest.from_string("from preparation_workspace import render_preparation\nrender_preparation([], 'test-ui', '', False)").run()
+    app = AppTest.from_string("from preparation_workspace import render_preparation\nrender_preparation([], 'test-ui', '', False)", default_timeout=20).run()
     app.session_state.prep_plan = create_repertoire_plan('test-ui',['caro'],today(),today()+timedelta(days=6))
     app.session_state.prep_repertoire_active = True
     app.run()
     assert not app.exception
     assert [b.label for b in app.button] == ['Voltar à trilha']
-    assert app.subheader[0].value == 'Caro-Kann'
+    assert app.subheader[0].value.startswith('Caro-Kann')
     assert app.caption and not app.metric
     app.button[0].click().run()
     assert not app.exception
@@ -151,7 +151,13 @@ def test_preparation_repeats_automatically_without_hints(browser_page,repertoire
     expect(page.locator('.training-hint')).to_have_count(0)
     assert page.get_by_role('button', name='Próxima posição', exact=True).count() == 0
     def saved():
-        return json.loads(next(tmp_path.glob('*.json')).read_text(encoding='utf8'))['training_days'][str(today())]
+        import time
+        for _ in range(50):
+            try:
+                return json.loads(next(tmp_path.glob('*.json')).read_text(encoding='utf8'))['training_days'][str(today())]
+            except (PermissionError, FileNotFoundError, StopIteration):
+                time.sleep(.01)
+        raise AssertionError('Não foi possível ler o progresso salvo')
     previous = None
     for i in range(8):
         session = saved()

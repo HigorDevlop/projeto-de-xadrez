@@ -9,8 +9,8 @@ def position_progress(plan):
     known, all_positions = set(), set()
     for line in course_lines(plan):
         board = chess.Board()
-        for uci in line['moves']:
-            if board.turn == (line['side'] == 'white'):
+        for ply, uci in enumerate(line['moves']):
+            if ply >= line.get('context_plies',0) and board.turn == (line['side'] == 'white'):
                 all_positions.add(board.epd())
                 if line['learned']:
                     known.add(board.epd())

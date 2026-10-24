@@ -16,21 +16,27 @@ def test_desktop_catalog_filters_and_layout(browser_page, course_server, width):
     page.goto(url)
     expect(page.locator('.card')).to_have_count(12)
     before = page.locator('#fixture-runs').get_attribute('data-runs')
+    page.get_by_role('button',name='Ver todas ›').first.click()
     for first in ('e4', 'd4'):
-        page.get_by_role('button', name='1. ' + first, exact=True).click()
-        expected = [c for c in catalog() if c['notation'].split()[0] == '1.' + first]
-        expect(page.locator('.card')).to_have_count(len(expected))
-        assert set(page.locator('.card').evaluate_all('(cards)=>cards.map(c=>c.dataset.id)')) == {c['id'] for c in expected}
-    page.get_by_role('searchbox').fill('siciliana')
+        page.get_by_role('button', name=first, exact=True).click()
+        expected = {c['id'] for c in catalog() if c['side']=='white' and c['notation'].split()[0]=='1.'+first}
+        seen=set()
+        for _ in range(10):
+            seen.update(page.locator('.grid .card').evaluate_all('(cards)=>cards.map(c=>c.dataset.id)'))
+            next_page=page.get_by_role('button',name='Próxima página',exact=True)
+            if next_page.is_disabled():break
+            next_page.click()
+        assert seen == expected
+    page.get_by_role('searchbox').fill('Sicilian')
     expect(page.locator('.empty')).to_be_visible()
-    page.get_by_role('button', name='1. e4', exact=True).click()
-    expect(page.locator('.card')).to_have_count(1)
+    page.get_by_role('button',name='e4',exact=True).click()
+    expect(page.locator('.grid .card').first).to_be_visible()
     page.get_by_role('searchbox').fill('')
-    page.get_by_role('button', name='Todas', exact=True).click()
-    expect(page.locator('.card')).to_have_count(12)
+    page.get_by_role('button',name='Todos',exact=True).click()
+    assert page.locator('.grid .card').count() > 1
     assert page.locator('#fixture-runs').get_attribute('data-runs') == before
     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
     if width > 1000:
-        cards = page.locator('.rail').first.locator('.card')
+        cards = page.locator('.grid .card')
         assert abs(cards.nth(0).bounding_box()['y'] - cards.nth(2).bounding_box()['y']) < 2
     page.screenshot(path=str(ROOT / f'tests/artifacts/desktop-catalog-{width}.png'), full_page=True)

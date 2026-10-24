@@ -1,0 +1,106 @@
+import re
+import pytest
+from test_coach_chess_ui import coach_server
+from test_browser_components import browser_page
+import classroom as rooms
+
+
+def test_professor_manager_student_routine_and_hidden_editor(browser_page,coach_server,tmp_path,monkeypatch):
+    from playwright.sync_api import expect
+    expect.set_options(timeout=30000)
+    monkeypatch.setenv('COACH_CLASSROOM_DB',str(tmp_path/'classrooms.sqlite3'))
+    page=browser_page
+    page.set_viewport_size({'width':1440,'height':1000})
+    owner=rooms.bootstrap_owner('criador','password-criador-123')
+    invite=rooms.issue_professor_key(owner,'mestre-ui')
+    page.goto(coach_server)
+    expect(page.locator('.home')).to_have_count(0)
+    expect(page.get_by_role('radio')).to_have_count(2)
+    expect(page.get_by_role('radio',name='Aluno',exact=True)).to_have_count(0)
+    page.get_by_text('Professor',exact=True).click()
+    expect(page.get_by_text('Ativar chave especial do criador',exact=True)).to_have_count(0)
+    page.get_by_role('textbox',name='Usuário',exact=True).fill('mestre-ui')
+    page.get_by_role('textbox',name='Senha',exact=True).fill('senha-professor-123')
+    page.get_by_role('button',name='Entrar',exact=True).click()
+    expect(page.get_by_text('Informe a chave especial de Professor emitida pelo criador.',exact=True)).to_be_visible()
+    page.get_by_role('textbox',name='Chave especial do Professor (obrigatória)',exact=True).fill(invite)
+    page.get_by_role('button',name='Entrar',exact=True).click()
+    expect(page.get_by_role('heading',name='Modo Preparo',exact=True)).to_be_visible()
+    expect(page.locator('.st-key-sidebar_navigation a')).to_have_count(7)
+    expect(page.locator('[data-testid=stCode]')).to_have_count(4)
+    teacher=rooms.login_professor('mestre-ui','senha-professor-123',invite)
+    student=rooms.students(teacher)[0]
+    page.get_by_role('tab',name='Rotina individual',exact=True).click()
+    box=page.get_by_role('combobox',name='Aberturas da rotina (até 4)',exact=True)
+    box.fill('Italian')
+    page.get_by_role('option',name='Italian Game · Brancas',exact=True).click()
+    page.keyboard.press('Escape')
+    page.get_by_role('tab',name='Rotina individual',exact=True).click()
+    page.screenshot(path='tests/artifacts/classroom-routine-editor.png',full_page=True)
+    expect(page.locator('[data-testid=stException]')).to_have_count(0)
+    page.get_by_role('button',name='Salvar rotina',exact=True).click()
+    expect(page.get_by_role('heading',name='Modo Preparo',exact=True)).to_be_visible()
+    for _ in range(200):
+        if rooms.dashboard(teacher,student['id'])['routine'] is not None:break
+        page.wait_for_timeout(50)
+    assert rooms.dashboard(teacher,student['id'])['routine']['openings']==['italian']
+    page.locator('.st-key-sidebar_navigation a').filter(has_text='Desempenho').click()
+    expect(page.get_by_role('heading',name='Desempenho dos alunos',exact=True)).to_be_visible()
+    expect(page.get_by_role('combobox',name='Selecionar aluno',exact=True)).to_be_visible()
+    expect(page.get_by_text('Precisão em aberturas:',exact=False)).to_be_visible()
+    expect(page.get_by_role('heading',name='Aberturas nas últimas 20 partidas',exact=True)).to_be_visible()
+    page.screenshot(path='tests/artifacts/classroom-professor.png',full_page=True)
+    page.get_by_text('Minha sessão',exact=True).click()
+    page.get_by_role('button',name='Sair e esquecer este navegador',exact=True).click()
+    rooms.register_user('aluno-ui','senha-usuario-123')
+    page.get_by_role('textbox',name='Usuário',exact=True).fill('aluno-ui')
+    page.get_by_role('textbox',name='Senha',exact=True).fill('senha-usuario-123')
+    page.get_by_role('button',name='Entrar',exact=True).click()
+    page.get_by_text('Juntar-se à sala',exact=True).first.click()
+    page.get_by_role('textbox',name='Código da sala',exact=True).fill(student['access_key'])
+    page.get_by_role('button',name='Juntar-se à sala',exact=True).click()
+    expect(page.get_by_text('Minha rotina · metas do Professor',exact=True)).to_be_visible()
+    expect(page.locator('.st-key-sidebar_navigation a')).to_have_count(7)
+    expect(page.locator('.clock')).to_be_visible()
+    expect(page.locator('.clock-status')).to_contain_text('Presença registrada')
+    expect(page.get_by_role('link',name='Modo Preparo',exact=False)).to_be_visible()
+    expect(page.get_by_role('link',name='Desempenho',exact=False)).to_have_count(0)
+    expect(page.get_by_role('button',name='Salvar rotina',exact=True)).to_have_count(0)
+    expect(page.get_by_role('button',name='Treinar Italiana',exact=True)).to_be_visible()
+    page.screenshot(path='tests/artifacts/classroom-student.png',full_page=True)
+    page.get_by_role('button',name='Treinar Italiana',exact=True).click()
+    page.get_by_role('button',name='Treinar',exact=True).click()
+    expect(page.locator('.board')).to_be_visible()
+    expect(page.locator('.training-hint')).to_have_count(1)
+    assert page.locator('[data-testid=stException]').count()==0
+    page.get_by_role('button',name='Usar abas comuns',exact=True).click()
+    expect(page.locator('.home header strong')).to_contain_text('Coach Chess')
+    import classroom_sessions
+    report=classroom_sessions.history(teacher,student['id'])
+    assert report[0]['early_exit'] and report[0]['color']=='red'
+    expect(page.locator('.visit-card')).to_have_count(0)
+    expect(page.locator('.home .card')).not_to_have_count(1)
+    expect(page.get_by_text('Minha rotina · metas do Professor',exact=True)).to_have_count(0)
+    page.locator('.st-key-sidebar_navigation a').filter(has_text='Análise').click()
+    expect(page.get_by_role('heading',name='Análise de partidas',exact=True)).to_be_visible()
+    page.get_by_role('button',name='Abrir sala do Professor',exact=True).click()
+    expect(page.get_by_text('Minha rotina · metas do Professor',exact=True)).to_be_visible()
+    expect(page.get_by_role('heading',name='Modo Preparo',exact=True)).to_be_visible()
+    # Direct URLs cannot restore the hidden teacher editor for a student.
+    page.goto(coach_server+'/preparo')
+    expect(page.get_by_role('button',name='Entrar',exact=True)).to_be_visible()
+    expect(page.locator('.st-key-sidebar_navigation a')).to_have_count(0)
+    expect(page.get_by_role('button',name='Salvar rotina',exact=True)).to_have_count(0)
+
+    # Only the teacher sees the exit audit and its red time card.
+    page.get_by_role('radio',name='Professor',exact=True).click()
+    page.get_by_role('textbox',name='Usuário',exact=True).fill('mestre-ui')
+    page.get_by_role('textbox',name='Senha',exact=True).fill('senha-professor-123')
+    page.get_by_role('textbox',name='Chave especial do Professor (obrigatória)',exact=True).fill(invite)
+    page.get_by_role('button',name='Entrar',exact=True).click()
+    page.get_by_role('tab',name='Presença e advertências',exact=True).click()
+    expect(page.locator('.visit-card:visible').filter(has_text='Saída antecipada').first).to_be_visible()
+    assert 'rgb(240, 92, 113)'==page.locator('.visit-card:visible').filter(has_text='Saída antecipada').first.locator('time').evaluate('(e)=>getComputedStyle(e).color')
+    page.screenshot(path='tests/artifacts/classroom-attendance-red.png',full_page=True)
+    page.get_by_role('tab',name='Rotina individual',exact=True).click()
+    page.screenshot(path='tests/artifacts/classroom-routine-modern.png',full_page=True)

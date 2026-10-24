@@ -1,5 +1,6 @@
 """Native browser image picker with a local square crop; only the crop is uploaded."""
 import base64
+import sqlite3
 
 import streamlit as st
 
@@ -18,7 +19,7 @@ _AVATAR = st.components.v2.component(
     <button class="cancel" type="button">Cancelar</button></div>
     <p class="error" role="alert"></p>''',
     css='''
-    .avatar {display:block;width:72px;height:72px;max-width:100%;aspect-ratio:1;padding:0;overflow:hidden;cursor:pointer;
+    .avatar {display:block;width:72px;height:72px;max-width:100%;aspect-ratio:1;padding:0;overflow:hidden;cursor:var(--club-cursor-link,pointer);
       border:1px solid var(--border);border-radius:16px;background:var(--soft);
       color:var(--accent);font:32px 'Segoe UI',system-ui,sans-serif;transition:border-color .15s}
     .avatar:hover {border-color:var(--accent)}
@@ -30,7 +31,7 @@ _AVATAR = st.components.v2.component(
     canvas {width:100%;max-width:320px;touch-action:none;cursor:move;border-radius:8px}
     .editor label {display:block;margin:16px 0}.zoom {accent-color:var(--accent);width:100%;margin-top:8px}
     .editor button {padding:10px 16px;margin:4px 6px 0 0;border-radius:8px;background:var(--surface);color:var(--ink);
-      border:1px solid var(--border);font:600 14px 'Segoe UI',system-ui,sans-serif;cursor:pointer}
+      border:1px solid var(--border);font:600 14px 'Segoe UI',system-ui,sans-serif;cursor:var(--club-cursor-link,pointer)}
     .editor .save {background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
     .editor p {margin-top:0}
     .error {color:#dc2626;font-size:14px}
@@ -38,7 +39,7 @@ _AVATAR = st.components.v2.component(
     js='''
     export default function({data,parentElement,setTriggerValue}) {
       const theme=data.theme ?? (data.dark ?
-        {surface:'#1A2720',soft:'#223329',ink:'#EDF3ED',border:'#354A3C',accent:'#85C69A',accent_ink:'#12251A'} :
+        {surface:'#121212',soft:'#1d1d1d',ink:'#f5f5f5',border:'#2b2b2b',accent:'#ff8000',accent_ink:'#ffffff'} :
         {surface:'#FFFEFA',soft:'#ECEFE8',ink:'#202B26',border:'#D9DED5',accent:'#176B4A',accent_ink:'#FFFFFF'});
       for(const [token,value] of Object.entries(theme))
         (parentElement.host ?? parentElement).style.setProperty('--'+token.replaceAll('_','-'),value);
@@ -101,14 +102,32 @@ def decode_avatar(value):
     return normalize_photo(raw, square=True)
 
 
-def avatar_changed():
+def avatar_changed(widget_key='avatar_picker',owner=None):
     try:
-        st.session_state.profile_bytes = decode_avatar(st.session_state.avatar_picker.photo)
+        import classroom
+        token=st.session_state.get('classroom_token')
+        actor=classroom.identity(token)
+        if not actor:
+            raise PermissionError('Entre novamente para salvar sua foto.')
+        if owner is not None and owner!=(actor['role'],actor['id']):
+            return
+        photo=decode_avatar(st.session_state[widget_key].photo)
+        st.session_state.profile_bytes = classroom.save_profile_photo(token,photo)
         st.session_state.pop('photo_error', None)
-    except ValueError as error:
+    except (ValueError,PermissionError) as error:
         st.session_state.photo_error = str(error)
+    except (OSError,sqlite3.Error):
+        st.session_state.photo_error = 'Não foi possível salvar a foto neste computador. Tente novamente.'
 
 
 def profile_avatar(photo, dark=False):
+    import classroom
+    actor=classroom.identity(st.session_state.get('classroom_token'))
+    owner=(actor['role'],actor['id']) if actor else None
+    widget_key='avatar_picker_'+owner[0]+'_'+owner[1] if owner else 'avatar_picker'
     encoded = 'data:image/png;base64,' + base64.b64encode(photo).decode() if photo else None
-    return _AVATAR(data={'photo': encoded, 'dark': dark, 'theme': palette(dark)}, key='avatar_picker', on_photo_change=avatar_changed)
+    result=_AVATAR(data={'photo': encoded, 'dark': dark, 'theme': palette(dark)}, key=widget_key,
+        on_photo_change=lambda:avatar_changed(widget_key,owner))
+    if error:=st.session_state.get('photo_error'):
+        st.error(error)
+    return result
