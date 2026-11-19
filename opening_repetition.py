@@ -27,7 +27,7 @@ def reinsert_index(token, revision, ply, remaining):
     if remaining == 0:
         return 0
     value = 2166136261
-    for byte in f'{token}|{revision}|{ply}'.encode('utf-8'):
+    for byte in f'{token}|{revision}|{ply}'.encode():
         value = ((value ^ byte) * 16777619) & 0xffffffff
     # When another position exists, it is always shown before this retry.
     return 1 + value % remaining

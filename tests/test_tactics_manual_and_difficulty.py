@@ -8,7 +8,7 @@ from tactics_difficulty import target_rating,completed,training_range
 
 def test_five_divisions_preserve_existing_points(tmp_path,monkeypatch):
     monkeypatch.setenv('ACERVO_PREPARATION_DIR',str(tmp_path))
-    assert len(RANKS)==30 and len(set(t for t,_ in RANKS))==30
+    assert len(RANKS)==30 and len({t for t,_ in RANKS})==30
     for i in range(40):
         record('one',str(i),str(i),'fork',True,True)
         if i==7:assert summary('one')['rank']=='Bronze 2'

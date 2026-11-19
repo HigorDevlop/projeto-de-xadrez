@@ -107,7 +107,7 @@ def test_local_engine_extends_5_7_9_11_13_without_changing_branch():
 def test_review_rotation_uses_old_material_after_the_cap():
     plan,session=review_plan(5)
     first={item['line']['id']+':'+str(item['ply']) for item in session['quiz_bank'].values()}
-    session.update(quiz_queue=[],quiz_states={key:'correct' for key in session['quiz_states']})
+    session.update(quiz_queue=[],quiz_states=dict.fromkeys(session['quiz_states'], 'correct'))
     record_achievements(plan,session,plan['personal_lines'][0])
     session['phase']='complete'
     again=begin_line(plan,'line-0','practice')

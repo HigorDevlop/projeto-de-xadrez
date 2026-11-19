@@ -1,6 +1,6 @@
 """Private creator console and an invisible, independently timed heartbeat."""
 from datetime import datetime
-from urllib.error import HTTPError,URLError
+from urllib.error import HTTPError
 
 import streamlit as st
 import classroom as rooms

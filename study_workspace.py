@@ -4,7 +4,7 @@ import chess
 import chess.pgn
 import streamlit as st
 
-from book_reader import book_info, merge_books, render_shelf, render_reader
+from book_reader import book_info, render_shelf, render_reader
 from book_library import BookLibrary
 from book_positions import BookPositionService
 from game_play import play_move

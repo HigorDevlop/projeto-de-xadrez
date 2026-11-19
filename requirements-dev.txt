@@ -1,0 +1,9 @@
+# Ferramentas de desenvolvimento: testes e lint. Não fazem parte do instalador.
+# Instalação: .venv/Scripts/python.exe -m pip install -r requirements-dev.txt
+-r requirements.txt
+-r requirements-mobile-server.txt
+-r requirements-continuity.txt
+pytest==9.2.0
+playwright==1.63.0
+httpx==0.28.1
+ruff==0.17.5

@@ -50,7 +50,7 @@ def test_reference_wrong_move_completion_and_streak(browser_page,course_server):
     page.set_viewport_size(dict(width=1440,height=1000))
     url,folder=course_server
     page.goto(url)
-    page.locator('[data-id=italian]').click()
+    page.locator('[data-id=italian]').click(timeout=60000)  # 1º carregamento do Streamlit pode levar ~15 s
     page.get_by_role('button',name='Treinar',exact=True).click()
     expect(page.locator('.board')).to_be_visible()
     # Wrong legal move is retained as a visible red arrow until Next.
@@ -104,7 +104,7 @@ def test_reference_wrong_move_completion_and_streak(browser_page,course_server):
     assert current(folder)['mode']=='learn'
     assert current(folder)['line_id']!=session['line_id']
     page.reload()
-    page.locator('[data-id=italian]').click()
+    page.locator('[data-id=italian]').click(timeout=60000)  # 1º carregamento do Streamlit pode levar ~15 s
     expect(page.locator('.node.learned')).to_have_count(1)
     assert page.locator('[data-testid=stException]').count()==0
 

@@ -71,7 +71,7 @@ def test_course_trail_training_quiz_and_persistence(browser_page,course_server,w
     url,folder=course_server
     page.set_viewport_size(dict(width=width,height=900))
     page.goto(url+('?theme=dark' if dark else ''))
-    page.locator('[data-id=italian]').click()
+    page.locator('[data-id=italian]').click(timeout=60000)  # 1º carregamento do Streamlit pode levar ~15 s
     expect(page.get_by_role('heading',name='Italian Game',exact=True)).to_be_visible()
     expect(page.locator('.node')).to_have_count(50)
     assert page.locator('.node:disabled').count()==49
@@ -149,14 +149,14 @@ def test_course_trail_training_quiz_and_persistence(browser_page,course_server,w
     expect(page.locator('[data-square=h8] .file')).to_have_text('h')
     page.get_by_role('button',name='Voltar ao curso').click()
     page.get_by_role('button',name='Todas as aberturas').click()
-    page.locator('[data-id=italian]').click()
+    page.locator('[data-id=italian]').click(timeout=60000)  # 1º carregamento do Streamlit pode levar ~15 s
     expect(page.get_by_role('heading',name='Italian Game',exact=True)).to_be_visible()
     page.get_by_role('radio',name='Curso',exact=True).click()
     expect(page.locator('.course-trail')).to_be_visible()
     assert sum(p['learned'] for p in saved(folder)['practice_progress'].values())==1
     page.reload()
     expect(page.locator('.home')).to_be_visible()
-    page.locator('[data-id=italian]').click()
+    page.locator('[data-id=italian]').click(timeout=60000)  # 1º carregamento do Streamlit pode levar ~15 s
     expect(page.locator('.course-trail')).to_be_visible()
     assert page.locator('.node:disabled').count()==48
 
@@ -167,11 +167,12 @@ def test_dark_mobile_course_has_readable_rank(browser_page,course_server):
     url, _ = course_server
     page.set_viewport_size(dict(width=390,height=900))
     page.goto(url+'?theme=dark')
-    page.locator('[data-id=italian]').click()
+    page.locator('[data-id=italian]').click(timeout=60000)  # 1º carregamento do Streamlit pode levar ~15 s
     expect(page.locator('.node')).to_have_count(50)
-    colors = page.locator('.reference-rank').evaluate(r'''element => ({
+    # O cartão de ranking atual é .opening-progress-card, com o título em <h3>.
+    colors = page.locator('.opening-progress-card').evaluate(r'''element => ({
         background: getComputedStyle(element).backgroundImage.match(/rgb[(][^)]*[)]/)[0],
-        foreground: getComputedStyle(element.querySelector('strong')).color
+        foreground: getComputedStyle(element.querySelector('h3')).color
     })''')
     def luminance(rgb):
         channels = [int(value) / 255 for value in rgb.removeprefix('rgb(').removesuffix(')').split(',')]

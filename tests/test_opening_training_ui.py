@@ -133,7 +133,7 @@ def test_instant_catalog_click_starts_selected_course(browser_page):
     mount(page,'opening_catalog_ui.py',dict(courses=catalog_cards(),colors=palette(False),
         selected=[],start=str(today()),end=str(today()),valid=True,instant=True))
     assert not page.locator('.confirm').is_visible()
-    page.locator('[data-id=italian]').click()
+    page.locator('[data-id=italian]').click(timeout=60000)  # 1º carregamento do Streamlit pode levar ~15 s
     assert page.evaluate('window.events[0].value.ids') == ['italian']
 
 
@@ -144,7 +144,7 @@ def test_preparation_repeats_automatically_without_hints(browser_page,repertoire
     page = browser_page
     page.set_viewport_size(dict(width=width,height=height))
     page.goto(repertoire_server)
-    page.locator('[data-id=italian]').click()
+    page.locator('[data-id=italian]').click(timeout=60000)  # 1º carregamento do Streamlit pode levar ~15 s
     expect(page.locator('.board')).to_be_visible()
     expect(page.locator('.board-coordinate')).to_have_count(16)
     expect(page.locator('[data-square=a1] .file')).to_have_text('a')
@@ -159,7 +159,7 @@ def test_preparation_repeats_automatically_without_hints(browser_page,repertoire
                 time.sleep(.01)
         raise AssertionError('Não foi possível ler o progresso salvo')
     previous = None
-    for i in range(8):
+    for _i in range(8):
         session = saved()
         assert session['current'] != previous
         previous = session['current']

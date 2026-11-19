@@ -230,7 +230,6 @@ def settle_immediate(plan, session):
 
 def resync_board(plan, event, classroom_token=None):
     """Recover an undelivered move once; an already accepted revision is ignored."""
-    from opening_training_state import submit_move
     session = active_session(plan)
     if not session or not isinstance(event, dict):
         return False

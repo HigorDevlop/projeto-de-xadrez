@@ -29,6 +29,7 @@ if not getattr(opening_course_ui, '_fixture_traced', False):
     opening_course_ui._fixture_traced = True
 from presentation import apply_theme
 from opening_practice import render_opening_practice
+from datetime import UTC
 st.set_page_config(page_title='Aberturas',layout='wide')
 dark = st.query_params.get('theme') == 'dark'
 apply_theme(dark)
@@ -48,6 +49,6 @@ if showcase and not st.session_state.get('showcase_seeded'):
     if showcase == 'profile':
         st.session_state.history_games = [dict(
             pgn=f'[White "browser-openings"]\n[Black "Opponent"]\n[Result "1-0"]\n[WhiteElo "{1250+i*30}"]\n[BlackElo "1300"]\n[Opening "Italian Game"]\n\n1. e4 e5 2. Nf3 Nc6 3. Bc4 1-0',
-            end_time=int(datetime.now(timezone.utc).timestamp()) - (1-i)*86400,
+            end_time=int(datetime.now(UTC).timestamp()) - (1-i)*86400,
             url=f'https://example.test/game/{i}') for i in range(2)]
 render_opening_practice('browser-openings',dark)

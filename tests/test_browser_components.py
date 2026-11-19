@@ -232,26 +232,8 @@ def test_keyboard_ignores_text_fields_and_clipboard_preserves_pgn(browser_page):
     assert page.get_by_role('status').inner_text() == 'PGN copiado!'
 
 
-
 def video_asset(filename):
     return 'data:video/mp4;base64,' + base64.b64encode((ROOT / 'assets' / filename).read_bytes()).decode()
-
-
-def test_opening_plays_cinematic_video_once_and_skip_survives_reruns(browser_page):
-    page = browser_page
-    data = {'source': video_asset('fischer-karpov-opening.mp4'), 'enabled': True}
-    mount(page, 'study_entrance.py', data)
-    page.wait_for_function("document.querySelector('video').currentTime > .1")
-    assert page.locator('video').evaluate('(v)=>v.videoWidth') == 1920
-    page.get_by_role('button', name='Pular abertura').click()
-    assert not page.locator('.opening').is_visible()
-    assert page.evaluate('window.events') == [{'key': 'finished', 'value': True}]
-    page.evaluate('(data)=>window.render(data)', data)
-    assert not page.locator('.opening').is_visible()
-    page.evaluate('(data)=>window.render(data)', {**data, 'enabled': False})
-    page.evaluate('(data)=>window.render(data)', data)
-    assert not page.locator('.opening').is_visible()
-    assert page.evaluate('window.events.length') == 1
 
 
 @pytest.mark.parametrize('flipped', [False, True])
@@ -283,15 +265,6 @@ def test_right_drag_arrows_toggle_persist_on_refresh_and_clear_on_move(browser_p
     changed = board_data(2, moved.fen())
     page.evaluate('(data)=>window.render(data)', changed)
     assert page.locator('.annotation-arrow').count() == 0
-
-
-def test_disabled_opening_does_not_load_video_or_replay_when_enabled(browser_page):
-    page = browser_page
-    mount(page, 'study_entrance.py', {'source': '', 'enabled': False})
-    assert not page.locator('.opening').is_visible()
-    assert page.locator('video').get_attribute('src') is None
-    page.evaluate('(source)=>window.render({enabled:true,source})', video_asset('fischer-karpov-opening.mp4'))
-    assert not page.locator('.opening').is_visible()
 
 
 def test_demo_plays_legal_solutions_and_can_pause(browser_page):
@@ -458,16 +431,6 @@ def test_cat_reduced_motion_stays_still_and_waits_for_opening(browser_page):
     first = page.locator('canvas').evaluate('(c)=>c.toDataURL()')
     page.clock.run_for(2000)
     assert page.locator('canvas').evaluate('(c)=>c.toDataURL()') == first
-
-
-def test_opening_escape_releases_mascot(browser_page):
-    page = browser_page
-    mount(page, 'study_entrance.py', {'source': video_asset('fischer-karpov-opening.mp4'), 'enabled': True})
-    assert page.evaluate('window.__chessIntroActive') is True
-    page.keyboard.press('Escape')
-    assert not page.locator('.opening').is_visible()
-    assert page.evaluate('window.__chessIntroActive') is False
-    assert page.evaluate('window.events') == [{'key': 'finished', 'value': True}]
 
 
 def test_board_editor_places_erases_and_moves_without_chess_legality(browser_page):

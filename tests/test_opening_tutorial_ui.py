@@ -24,7 +24,7 @@ def test_short_tutorial_opens_playable_lesson(browser_page, course_server, width
     tutorial.get_by_role('button', name='Começar a jogar', exact=True).click()
     assert page.evaluate('window.events[0].value') == dict(id='italian', intent='learn')
     page.goto(course_server[0])
-    page.locator('[data-id=italian]').click()
+    page.locator('[data-id=italian]').click(timeout=60000)  # 1º carregamento do Streamlit pode levar ~15 s
     page.get_by_role('button', name='Treinar', exact=True).click()
     expect(page.locator('.board')).to_be_visible(timeout=15000)
     expect(page.locator('.square.movable').first).to_be_visible(timeout=15000)
@@ -38,6 +38,6 @@ def test_skip_tutorial_starts_practice(browser_page, course_server):
     page.get_by_role('button', name='Jogar agora', exact=False).click()
     assert page.evaluate('window.events[0].value') == dict(id='italian', intent='learn')
     page.goto(course_server[0])
-    page.locator('[data-id=italian]').click()
+    page.locator('[data-id=italian]').click(timeout=60000)  # 1º carregamento do Streamlit pode levar ~15 s
     page.get_by_role('button', name='Treinar', exact=True).click()
     expect(page.locator('.board')).to_be_visible(timeout=15000)

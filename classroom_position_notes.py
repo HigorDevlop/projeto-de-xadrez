@@ -66,7 +66,7 @@ def edit_position_notes(payload,key,frames,cache):
         st.text_area('Instrução nesta posição',value=st.session_state[cache].get(frame['fen'],''),height=180,key=widget,
                      on_change=keep_note,placeholder='Explique o plano, a ameaça ou o motivo deste lance.',max_chars=5000)
         st.caption('A instrução acompanha esta posição para o aluno. Confirme em Salvar atividade.')
-        from classroom_fischer_instructor import render_instructor
+        from classroom_coach_instructor import render_instructor
         text=st.session_state[cache].get(frame['fen'],'').strip() or frame['comment']
         render_instructor([dict(label=frame['label'],text=text)] if text else [],key+'_instructor')
     payload['position_notes']=[dict(ply=at,fen=entry['fen'],text=st.session_state[cache][entry['fen']]) for at,entry in enumerate(frames) if st.session_state[cache].get(entry['fen'],'').strip()]

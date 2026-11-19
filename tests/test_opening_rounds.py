@@ -9,7 +9,7 @@ def finish(plan,line):
     _start_quiz(plan,session)
     assert {item['line']['id'] for item in session['quiz_bank'].values()}=={line['id']}
     assert len(session['quiz_queue'])==quiz_target(plan,session)[1]
-    session.update(mode='quiz',quiz_queue=[],quiz_states={key:'correct' for key in session['quiz_states']},phase='complete')
+    session.update(mode='quiz',quiz_queue=[],quiz_states=dict.fromkeys(session['quiz_states'], 'correct'),phase='complete')
     record_completion(plan,session)
     return session
 

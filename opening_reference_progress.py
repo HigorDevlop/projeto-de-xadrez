@@ -1,5 +1,5 @@
 """Reference-screen milestones and daily activity, derived from real completions."""
-from datetime import date, timedelta
+from datetime import timedelta
 import chess
 from opening_course_state import course_lines
 from preparation_state import today

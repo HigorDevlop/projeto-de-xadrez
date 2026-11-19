@@ -6,7 +6,7 @@ import streamlit as st
 from interactive_board import interactive_board
 from opening_catalog_ui import repertoire_catalog
 from opening_training_state import (create_repertoire_plan, session_for, current_line,
-    board_for, expected_move, submit_move, advance, metrics)
+    board_for, expected_move, submit_move, advance)
 from preparation_ui import roadmap
 from preparation_state import today
 from preparation_repetition import repertoire_session, counts

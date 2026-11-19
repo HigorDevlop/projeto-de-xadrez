@@ -1,5 +1,5 @@
 """Teacher release times, stored as UTC and enforced by all material gates."""
-from datetime import datetime, timezone
+from datetime import datetime
 import math
 import time
 

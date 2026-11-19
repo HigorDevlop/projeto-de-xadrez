@@ -1,4 +1,6 @@
-![alt text](image.png)# Como testar a versão desktop
+# Como testar a versão desktop
+
+![Treino de aberturas na versão desktop](img/treino-aberturas.png)
 
 ## 1. Abrir
 

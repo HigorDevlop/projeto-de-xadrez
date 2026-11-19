@@ -15,13 +15,23 @@ def fingerprint(records):
     return tuple(values)
 
 
+def _left_page(page):
+    """True when the user navigated away from the page that created the timer.
+
+    Timed fragments can keep firing after a page switch; acting then would
+    redraw dashboard pieces (or rerun the app) on top of another page."""
+    return st.session_state.get('active_tab')!=page
+
+
 def watch_reports(history,username,days,auto):
     from preparation_state import today
     from dashboard_auto_analysis import ensure,records_for
     records=records_for(history,username,today(),days)
     baseline=fingerprint(records)
+    page=st.session_state.get('active_tab')
     @st.fragment(run_every='5s')
     def check():
+        if _left_page(page):return
         if auto:ensure(history,username,days)
         if fingerprint(records)!=baseline:st.rerun(scope='app')
     check()
@@ -31,8 +41,10 @@ def render_queue(records):
     """The timer updates a single placeholder, never the surrounding charts."""
     from dashboard_auto_analysis import queue
     slot=st.empty();previous=[None]
+    page=st.session_state.get('active_tab')
     @st.fragment(run_every='2s')
     def check():
+        if _left_page(page):return
         status=queue().status(records)
         if status==previous[0]:return
         previous[0]=status

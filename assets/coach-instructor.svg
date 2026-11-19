@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="528" height="928" viewBox="0 0 264 464" role="img" aria-label="Mestre Coach, personagem virtual em forma de cavalo de xadrez">
+  <defs>
+    <radialGradient id="glow" cx="38%" cy="22%" r="80%">
+      <stop offset="0" stop-color="#5a4a2a"/>
+      <stop offset=".45" stop-color="#22251d"/>
+      <stop offset="1" stop-color="#0f120e"/>
+    </radialGradient>
+    <linearGradient id="body" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f3e6c8"/>
+      <stop offset=".55" stop-color="#cdb487"/>
+      <stop offset="1" stop-color="#8a7046"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="1" y1="0" x2="0" y2="0">
+      <stop offset="0" stop-color="#f6c76a" stop-opacity=".9"/>
+      <stop offset=".3" stop-color="#f6c76a" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="coat" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2d3a33"/>
+      <stop offset="1" stop-color="#151c18"/>
+    </linearGradient>
+  </defs>
+  <rect width="264" height="464" fill="url(#glow)"/>
+  <g opacity=".14" fill="#d8c08c">
+    <rect x="0" y="380" width="44" height="44"/><rect x="88" y="380" width="44" height="44"/>
+    <rect x="176" y="380" width="44" height="44"/><rect x="44" y="424" width="44" height="40"/>
+    <rect x="132" y="424" width="44" height="40"/><rect x="220" y="424" width="44" height="40"/>
+  </g>
+  <!-- Corpo: casaco de professor -->
+  <path d="M40 464 C44 392 78 352 132 346 C186 352 220 392 224 464 Z" fill="url(#coat)"/>
+  <path d="M112 350 L132 404 L152 350" fill="none" stroke="#c9a45c" stroke-width="3"/>
+  <path d="M120 352 L132 384 L144 352 Z" fill="#e9dcc0"/>
+  <!-- Cabeça de cavalo estilizada -->
+  <path d="M96 352 C88 312 92 280 104 254 C82 248 62 232 58 214 C55 200 64 190 78 192 L112 198
+           C104 182 102 162 108 142 C114 120 128 104 146 96 L150 76 L164 100
+           C190 110 206 138 206 176 C206 228 186 276 176 352 Z" fill="url(#body)"/>
+  <path d="M164 100 C190 110 206 138 206 176 C206 228 186 276 176 352 L164 352
+           C172 280 190 230 190 180 C190 146 178 120 160 106 Z" fill="url(#rim)"/>
+  <!-- Crina -->
+  <path d="M146 96 C170 92 196 108 212 136 C220 152 222 172 218 196 C210 172 198 150 178 132
+           C190 152 196 174 194 200 C184 170 168 146 146 128 Z" fill="#5b4326"/>
+  <!-- Olho, narina e boca -->
+  <ellipse cx="128" cy="160" rx="9" ry="7" fill="#1d1a14"/>
+  <circle cx="131" cy="158" r="2.4" fill="#fff6e2"/>
+  <path d="M112 156 C118 148 132 146 142 150" fill="none" stroke="#3b2f1e" stroke-width="3" stroke-linecap="round"/>
+  <ellipse cx="72" cy="206" rx="4" ry="3" fill="#3b2f1e"/>
+  <path d="M70 226 C82 232 96 232 108 226" fill="none" stroke="#6b5532" stroke-width="2.4" stroke-linecap="round"/>
+  <!-- Óculos de professor -->
+  <g fill="none" stroke="#c9a45c" stroke-width="3">
+    <circle cx="128" cy="160" r="17"/>
+    <path d="M145 158 L166 152"/>
+  </g>
+  <!-- Peão na mão, gesto de explicação -->
+  <g transform="translate(196 372)">
+    <ellipse cx="0" cy="40" rx="30" ry="12" fill="#e9dcc0"/>
+    <path d="M-22 38 C-16 18 -10 6 -8 -6 L8 -6 C10 6 16 18 22 38 Z" fill="#f3e6c8"/>
+    <rect x="-13" y="-12" width="26" height="8" rx="4" fill="#e1cfa8"/>
+    <circle cx="0" cy="-26" r="15" fill="#f3e6c8"/>
+    <path d="M10 -36 A15 15 0 0 1 12 -18" fill="none" stroke="#f6c76a" stroke-width="3" stroke-linecap="round"/>
+  </g>
+</svg>

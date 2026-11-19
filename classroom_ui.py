@@ -107,7 +107,6 @@ def access(show_session=True):
     user=rooms.identity(st.session_state.get('classroom_token'))
     if not user:
         return None
-    labels={'admin':'Superadministrador','professor':'Professor · Mestre da Sala','student':'Aluno','user':'Usuário'}
     if user['role']=='user':
         token=st.session_state.classroom_token
         link=rooms.membership(token)

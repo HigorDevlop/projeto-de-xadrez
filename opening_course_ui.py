@@ -5,9 +5,8 @@ import streamlit as st
 from interactive_board import interactive_board
 from opening_training_state import board_for, current_line, expected_move
 from opening_course_state import active_session, settle_immediate, course_lines, receive_move, resync_board
-from opening_reference_style import CSS as STYLE, title_html
+from opening_reference_style import title_html
 from opening_reference_catalog import DISPLAY_NAMES
-from opening_reference_pages import rank_card, render_trail
 from opening_reference_progress import continue_checkpoint, position_progress
 from opening_reference_engine import evaluation
 from opening_quiz import quiz_data, line_data
@@ -73,8 +72,6 @@ def render_lesson(plan,save,back,dark=True):
             trail_ids=plan.get('personal_trail_ids',[])
             upcoming=next((item for identifier in trail_ids for item in lessons
                            if item['id']==identifier and not item['learned']),None)
-        anchor=next((item for item in lessons if item['id']==session['line_id']),line)
-        foundations=[item for item in lessons if item.get('stage')=='foundation']
         from opening_rounds import cycle,next_lesson,target
         if cycle(plan) is not None and session.get('practice_intent') in ('learn','practice'):
             upcoming,source=next_lesson(plan,lessons)
@@ -127,7 +124,6 @@ def render_lesson(plan,save,back,dark=True):
                     st.success(f"Fase concluída · Precisão na primeira tentativa: {result['accuracy']:.1f}%".replace('.',','))
         with st.container(key='opening_quiz_status'):
             if session.get('quiz_bank') and session['mode']=='quiz':
-                reviewed=len({item['line']['id'] for item in session['quiz_bank'].values()})
                 if session.get('quiz_error_based'):
                     st.caption(f"Revisão dos seus erros · {session.get('quiz_pool_size', 0)} posições da abertura · {len(session['quiz_bank'])} desafios. As posições se repetem para fixar os lances.")
                 else:

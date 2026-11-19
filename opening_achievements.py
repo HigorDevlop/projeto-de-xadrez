@@ -56,7 +56,7 @@ def record_achievements(plan, session, line):
         seen[position]=seen.get(position,0)+1
     earned=plan.setdefault('achievements',{})
     new=[]
-    for identifier,title,description,metric,target in ACHIEVEMENTS:
+    for identifier,title,_description,metric,target in ACHIEVEMENTS:
         if stats.get(metric,0)>=target and identifier not in earned:
             earned[identifier]=dict(day=str(today()),title=title)
             new.append(title)

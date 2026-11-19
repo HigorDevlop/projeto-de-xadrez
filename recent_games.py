@@ -1,5 +1,5 @@
 """Eight recent Chess.com games, with official or explicitly estimated accuracy."""
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from hashlib import sha256
 from io import StringIO
 import math
@@ -75,7 +75,7 @@ def cards_data(history, username, estimates):
             error = 'Não foi possível ler esta partida.'
         white = item.get('white', {}).get('username', '?')
         black = item.get('black', {}).get('username', '?')
-        date = datetime.fromtimestamp(item.get('end_time', 0), timezone.utc).strftime('%d/%m/%Y · %H:%M UTC')
+        date = datetime.fromtimestamp(item.get('end_time', 0), UTC).strftime('%d/%m/%Y · %H:%M UTC')
         cards.append({'index': index, 'title': f'{white} × {black}', 'date': date, 'svg': svg,
                       'accuracy': accuracy, 'error': error, 'empty': False})
     while len(cards) < 8:

@@ -35,7 +35,7 @@ def build_curriculum(course):
         result[-1].pop('context_plies',None)
     for branch,(moves,source) in enumerate(roots,1):
         append(moves,source,branch,'foundation')
-    for branch,(root,source) in enumerate(roots,1):
+    for branch,(root,_source) in enumerate(roots,1):
         continuations=[line for line in paths if line['moves'][:len(root)]==root]
         staged={}
         for line in continuations:

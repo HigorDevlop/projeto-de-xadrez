@@ -21,7 +21,7 @@ Data: 12/11/2026. Escopo: análise; nenhuma alteração de funcionalidade ou rem
 |---|---|---|
 | Professor prepara/atribui | `classroom_materials_ui.teacher_materials`, `classroom_trail_editor`, `classroom_trails`, `classroom_training_sessions`, `classroom_challenges.publish` | Há autoria, rascunhos, prévia, publicação, biblioteca e atribuição. Valor central a destacar. |
 | Aluno participa | `classroom_ui.student_workspace`, `classroom_trail_student.select_step`, `classroom_materials_ui.student_materials`, `interactive_board` | Há trilha, liberação, tabuleiro jogável e materiais diversos. O caminho passa por nomes e contextos diferentes. |
-| Recebe feedback | `classroom_materials_ui` apresenta “Correto!”/“Tente outra ideia”; notas por posição e `classroom_fischer_instructor`; `classroom_challenges_ui.student` distingue gabarito de qualidade do lance | Boa fundação, com oportunidade de tornar a explicação e o próximo passo mais consistentes. |
+| Recebe feedback | `classroom_materials_ui` apresenta “Correto!”/“Tente outra ideia”; notas por posição e `classroom_coach_instructor`; `classroom_challenges_ui.student` distingue gabarito de qualidade do lance | Boa fundação, com oportunidade de tornar a explicação e o próximo passo mais consistentes. |
 | Vê progresso/continua | `opening_course_state`, `opening_rounds`, `opening_error_review`, `tactics_progress`, `evolution_map`, sessões salvas | Há retomada e evidência real. Falta um ponto de entrada comum que selecione o que fazer agora. |
 | Professor acompanha | `classroom_ui._student_dashboard`, `classroom_challenges.results`, resultados de materiais, sessões e presença | Há dados de acompanhamento, mas a visão principal ainda exige selecionar alunos e percorrer áreas. Propor uma síntese de turma acionável. |
 
@@ -37,15 +37,15 @@ Há sobreposição concreta: a aba Dashboard e a página Desempenho do professor
 
 ### Identidade visual: preservar, hierarquizar e medir
 
-As capturas atuais [desktop](tests/artifacts/redesign-routine-desktop.png) e [celular](tests/artifacts/redesign-routine-mobile.png), produzidas em 12/11, mostram fundo azul escuro, acentos ciano, cartões, boa separação dos blocos e uma marca reconhecível. No celular, a faixa de abas é parcialmente visível e exige navegação horizontal; passar no teste de largura não significa que a descoberta das funções esteja resolvida.
+As capturas atuais [desktop](../tests/artifacts/redesign-routine-desktop.png) e [celular](../tests/artifacts/redesign-routine-mobile.png), produzidas em 12/11, mostram fundo azul escuro, acentos ciano, cartões, boa separação dos blocos e uma marca reconhecível. No celular, a faixa de abas é parcialmente visível e exige navegação horizontal; passar no teste de largura não significa que a descoberta das funções esteja resolvida.
 
-As capturas anteriores [catálogo de aberturas](tests/artifacts/coach-openings-desktop.png), [alunos](tests/artifacts/student-roster-desktop.png) e [prévia de conclusão](tests/artifacts/classroom-completion-choice.png) ajudam a compreender as superfícies, mas não substituem uma nova validação de todos esses estados.
+As capturas anteriores [catálogo de aberturas](../tests/artifacts/coach-openings-desktop.png), [alunos](../tests/artifacts/student-roster-desktop.png) e [prévia de conclusão](../tests/artifacts/classroom-completion-choice.png) ajudam a compreender as superfícies, mas não substituem uma nova validação de todos esses estados.
 
 Preservar tabuleiro como centro da atividade, cartões de conteúdo, trilhas visuais e celebrações. Evitar que cada atividade obrigue o aluno a atravessar uma apresentação decorativa. “Continuar aula” precisa levar diretamente ao estado correto.
 
 Já existe suporte a movimento reduzido em `interactive_board.py`, `tactics_orbit.py`, `tactics_workspace.py` e no personagem de instrução. O tabuleiro também tem mensagens `aria-live` e tratamento de teclado. Isso é evidência de cuidado, não certificação de acessibilidade completa. Ainda é necessário verificar uso integral sem mouse, foco, zoom, contraste e equivalência entre arrastar, clicar e teclado.
 
-O personagem em `classroom_fischer_instructor.py` lê comentários preparados pelo professor, usa voz local em português e preserva texto quando a voz não está disponível. É uma aplicação pedagógica concreta. Não deve ser apresentado como professor autônomo ou como garantia de avaliação por IA.
+O personagem em `classroom_coach_instructor.py` lê comentários preparados pelo professor, usa voz local em português e preserva texto quando a voz não está disponível. É uma aplicação pedagógica concreta. Não deve ser apresentado como professor autônomo ou como garantia de avaliação por IA.
 
 ### Fricções pedagógicas específicas
 

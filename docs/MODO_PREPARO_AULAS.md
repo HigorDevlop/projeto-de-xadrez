@@ -73,7 +73,7 @@ As instruções guardam o lance e o FEN exato. Ao reabrir a atividade, elas reap
 
 ## Personagem e leitura da explicação
 
-A prévia por posição inclui uma representação artística de Bobby Fischer junto da instrução. No treino do aluno e nas partidas estudadas, o personagem apresenta os comentários do professor. **Ouvir explicação** lê o texto; **Parar** interrompe a fala; **Ler automaticamente** permite acompanhar a mudança das posições após ativação pelo usuário. A preferência fica no navegador do aplicativo.
+A prévia por posição inclui o **Mestre Coach**, personagem virtual original (um cavalo de xadrez professor, `assets/coach-instructor.svg`), junto da instrução. No treino do aluno e nas partidas estudadas, o personagem apresenta os comentários do professor. **Ouvir explicação** lê o texto; **Parar** interrompe a fala; **Ler automaticamente** permite acompanhar a mudança das posições após ativação pelo usuário. A preferência fica no navegador do aplicativo.
 
 A leitura utiliza uma voz local em português do aparelho, com preferência por pt-BR. Vozes online não são utilizadas; quando não existe voz local compatível, a explicação permanece escrita. A imagem já está incluída na instalação. A mudança de comentário interrompe a leitura anterior, e sair da tela também interrompe a fala. A animação respeita a preferência do sistema por menos movimento.
 

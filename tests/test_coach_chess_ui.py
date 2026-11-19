@@ -91,7 +91,7 @@ def test_four_state_practice_advances_immediately_and_recovers(browser_page,cour
     page.set_viewport_size(dict(width=1440,height=1000))
     url,folder=course_server
     page.goto(url)
-    page.locator('[data-id=italian]').click()
+    page.locator('[data-id=italian]').click(timeout=60000)  # 1º carregamento do Streamlit pode levar ~15 s
     expect(page.get_by_role('button',name='Aprender com setas',exact=True)).to_have_count(0)
     page.get_by_role('button',name='Treinar',exact=True).click()
     expect(page.locator('.training-hint')).to_have_count(1)

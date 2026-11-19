@@ -3,7 +3,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 from html import escape
 import streamlit as st
-from opening_reference_style import badge, FLAME, STAR, title_html, svg_image
+from opening_reference_style import badge, STAR, svg_image
 from opening_reference_progress import position_progress, activity_days, streak
 from preparation_state import today, LOCAL_ZONE
 

@@ -1,7 +1,6 @@
 """Questionário e percurso diário de preparo, com material previamente calculado."""
 from concurrent.futures import CancelledError, ThreadPoolExecutor
-from datetime import date, timedelta
-from hashlib import sha256
+from datetime import date
 from threading import Event
 import time
 
@@ -13,9 +12,8 @@ from preparation_repetition import create_session, current_exercise, revision, s
 from design_tokens import palette
 from preparation_ui import roadmap, STYLE
 from interactive_board import interactive_board
-from preparation_data import opening_families, build_training_material, _OPENING_FAMILIES
-from preparation_state import (STAGES, STAGE_NAMES, STAGE_SECONDS, today, new_plan,
-    load_plan, save_plan, day_progress, available_stage, start_stage, pause_stage,
+from preparation_data import build_training_material
+from preparation_state import (STAGES, STAGE_NAMES, STAGE_SECONDS, today, load_plan, save_plan, day_progress, available_stage, start_stage, pause_stage,
     tick, complete_stage, tactic_limit, finish_plan, plan_path)
 
 

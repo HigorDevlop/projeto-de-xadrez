@@ -6,7 +6,7 @@ import streamlit as st
 from opening_course_state import opening_rankings
 from opening_repertoires import catalog
 from opening_reference_catalog import display_name
-from opening_reference_style import badge, FLAME
+from opening_reference_style import badge
 from opening_reference_progress import streak
 from streak_style import flame
 

@@ -8,7 +8,7 @@ import json
 import secrets
 import streamlit as st
 import classroom_community as community
-from classroom_design import apply as apply_design,empty,icon,section
+from classroom_design import apply as apply_design,empty,icon
 from preparation_state import LOCAL_ZONE
 
 _CHAT=st.components.v2.component('classroom_messenger',html='<section class="messenger"><header><span class="chat-avatar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="9" cy="8" r="3"/><path d="M3 21v-3a6 6 0 0 1 12 0v3m1-17a3 3 0 0 1 0 6m2 4a5 5 0 0 1 3 5v2"/></svg></span><div><strong></strong><small>Mensagens da sua turma</small></div></header><div class="messages" role="log" aria-live="polite"></div></section>',css='''

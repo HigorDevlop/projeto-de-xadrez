@@ -52,7 +52,7 @@ def render_levels(plan,save,start):
             monitor()
     if error:=state.get('openings_level_error'): st.warning(error)
     lessons=list(lines_for(plan).values())
-    from opening_rounds import cycle,next_lesson,target,quiz_target,phase_number
+    from opening_rounds import cycle,target,phase_number
     if cycle(plan) is not None:
         if phase_number(plan)>50:
             st.success('Trilha concluída · 50 fases. Suas revisões continuam disponíveis.')

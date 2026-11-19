@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, UTC
 from hashlib import sha256
-from html import escape
 from io import StringIO
 from pathlib import Path
 from threading import Event
@@ -36,10 +35,10 @@ from analysis_summary import render_analysis_summary, analysis_sidebar_html
 from analysis_progress import AnalysisProgress, render_progress
 from tactics import solve_move
 from page_chrome import page_chrome
-from tutor import load_passages, tutor_mood
+from tutor import load_passages
 from book_reader import merge_books
-from preparation_state import load_plan, today as local_today
-from recent_games import recent_games, recent_eight, history_revision, game_id
+from preparation_state import today as local_today
+from recent_games import recent_games, recent_eight, history_revision
 
 ROOT = Path(__file__).resolve().parent
 USER_PREFERENCE = Path(os.environ.get("ACERVO_USER_PREFERENCE", ROOT / ".streamlit/last_chesscom_user.json"))
@@ -151,11 +150,6 @@ def load_library(files, max_plies):
     return index, BookStudy(passages), errors + text_errors
 
 
-@st.cache_data(max_entries=2, show_spinner=False)
-def portrait_data(path, modified):
-    return base64.b64encode(Path(path).read_bytes()).decode()
-
-
 def background_data(image):
     if not image:
         return ""
@@ -211,21 +205,6 @@ def background_css(mode, image, dark_theme=False):
         overlay = "#111A16d9" if dark_theme else "#F5F3EDe6"
         return f"background-image:linear-gradient({overlay},{overlay}),url('{image_url}');background-size:cover;background-position:center;"
     return f"background-color:{palette(dark_theme)['background']};background-image:none;"
-
-
-def show_portrait(category):
-    path = ROOT / "assets/bobby-qualities.png"
-    if not path.is_file():
-        return
-    category = canonical_category(category)
-    portraits = {'brilliant': 1, 'best': 2, 'excellent': 4,
-                 'good': 5, 'inaccuracy': 6, 'mistake': 7, 'blunder': 9}
-    index = portraits.get(category, 0)
-    label = CATEGORIES[category].label if category in CATEGORIES else 'Aguardando avaliação'
-    data = portrait_data(str(path), path.stat().st_mtime)
-    st.html(f'<div role="img" aria-label="Bobby Fischer: {label}" style="width:100%;max-width:140px;'
-            f'aspect-ratio:1;border-radius:8px;background-image:url(data:image/png;base64,{data});'
-            f'background-size:500% 200%;background-position:{index % 5 * 25}% {index // 5 * 100}%"></div>')
 
 
 @st.cache_resource
@@ -629,7 +608,7 @@ def render_history():
     state = st.session_state
     def label(index, history=state.history_games):
         item = history[index]
-        date = datetime.fromtimestamp(item.get("end_time", 0), timezone.utc).strftime("%d/%m/%Y %H:%M UTC")
+        date = datetime.fromtimestamp(item.get("end_time", 0), UTC).strftime("%d/%m/%Y %H:%M UTC")
         return f"{date} · {item.get('white', {}).get('username', '?')} × {item.get('black', {}).get('username', '?')}"
     st.selectbox("Escolher partida no histórico", range(len(state.history_games)), index=None,
                  format_func=label, placeholder="Escolha uma partida" if state.history_games else "Entre com seu usuário do Chess.com",
@@ -746,6 +725,11 @@ def render_board():
 def _render_board_content():
     import analysis_editor
     state = st.session_state
+    if state.get('analysis_request_pending'):
+        # O pedido chegou por uma re-execução só deste fragmento: o run_every do
+        # painel de progresso é decidido no decorador, na execução completa.
+        # Sem recarregar a página inteira, o painel ficaria parado em 0%.
+        st.rerun()
     render_analysis_progress()
     editing = state.get('analysis_editing', False) and state.active_tab == 'Análise'
     if not editing:

@@ -36,7 +36,7 @@ from types import SimpleNamespace
 import streamlit as st
 import opening_practice
 
-def click_catalog(plan, on_select):
+def click_catalog(plan, on_select, **kwargs):
     st.session_state.openings_home = SimpleNamespace(select={'id':'caro'})
     on_select()
 

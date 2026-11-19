@@ -47,7 +47,7 @@ def render(token):
                                       for r in evidence], hide_index=True)
                         key = 'dashboard_evolution_' + data['owner'] + '_' + source + '_' + group['theme']
                         index = st.selectbox('Registro para abrir', range(len(evidence)),
-                            format_func=lambda i: evidence[i]['day'] + ' · ' + evidence[i]['detail'], key=key)
+                            format_func=lambda i, evidence=evidence: evidence[i]['day'] + ' · ' + evidence[i]['detail'], key=key)
                         row = evidence[index]
                         label = ('Treinar esta posição' if row['action'].get('train') else 'Abrir análise desta partida') if source == 'Partidas' else 'Abrir treino relacionado'
                         if st.button(label, key=key + '_open'):

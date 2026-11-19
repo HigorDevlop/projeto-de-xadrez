@@ -274,14 +274,30 @@ def test_forge_rewards_only_clean_unique_exercises_and_advances_from_buffer(monk
     puzzle = parse_puzzle({'game': {'pgn': '1. f3 e5 2. g4 *'},
                           'puzzle': {'id': 'failed', 'initialPly': 2, 'rating': 800,
                                      'themes': ['mateIn1'], 'solution': ['d8h4']}})
-    state = SimpleNamespace(puzzle=puzzle, puzzle_progress=0, puzzle_revision=0,
+    class SessionState(dict):
+        # Como o session_state real: dicionário com acesso também por atributo.
+        def __getattr__(self, key):
+            try:
+                return self[key]
+            except KeyError:
+                raise AttributeError(key) from None
+        def __setattr__(self, key, value):
+            self[key] = value
+    state = SessionState(puzzle=puzzle, puzzle_progress=0, puzzle_revision=0,
         puzzle_failed_ids=set(), puzzle_rewarded_ids=set(), forge_event=0, forge_sharpness=0,
-        puzzle_buffer=[replace(puzzle,id='clean'), replace(puzzle,id='third')], puzzle_seen=[])
+        puzzle_buffer=[replace(puzzle,id='clean'), replace(puzzle,id='third')], puzzle_seen=[],
+        tactic_theme=None)
     tree = ast.parse((ROOT / 'app.py').read_text(encoding='utf-8'))
     callbacks = ast.Module(body=[n for n in tree.body if isinstance(n,ast.FunctionDef)
         and n.name in {'puzzle_changed','advance_puzzle','reset_puzzle'}], type_ignores=[])
     monkeypatch.setattr('classroom_ui.training_token', lambda:None)
+    # Não grava pontos de verdade durante o teste.
+    monkeypatch.setattr('tactics_progress.record', lambda *args, **kwargs: None)
+    import sqlite3
+    from hashlib import sha256
+    from time import perf_counter
     namespace = {'st': SimpleNamespace(session_state=state), 'solve_move': solve_move,
+                 'sqlite3': sqlite3, 'sha256': sha256, 'perf_counter': perf_counter,
                  'classroom':SimpleNamespace(identity=lambda token:None)}
     exec(compile(callbacks,'app.py','exec'), namespace)
     def attempt(uci, revision=None):

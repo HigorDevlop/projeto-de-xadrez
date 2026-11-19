@@ -44,7 +44,7 @@ def test_home_does_not_wait_for_history_or_build_analysis_catalog(tmp_path, monk
     monkeypatch.setattr(BookLibrary,'load',lambda *args: (_ for _ in ()).throw(
         AssertionError('The home must not read the book library')))
     # Register CCv2 components against this AppTest runtime.
-    for module in ('interactive_board', 'recent_games', 'study_workspace', 'study_entrance',
+    for module in ('interactive_board', 'recent_games', 'study_workspace',
                    'profile_avatar', 'page_chrome', 'cat_mascot', 'tactics_forge',
                    'tactic_demo', 'pgn_clipboard'):
         sys.modules.pop(module, None)

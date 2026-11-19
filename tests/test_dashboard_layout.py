@@ -79,7 +79,7 @@ render_dashboard([{item!r}],'player',complete=True,auto_diagnostics=False)
         expect(quality).to_contain_text('0 de 1 partidas analisadas')
         folder=tmp_path/'quality';folder.mkdir()
         key=quality_key(chess.pgn.read_game(StringIO(item['pgn'])))
-        counts={name:0 for name in CATEGORIES};counts['best']=2
+        counts=dict.fromkeys(CATEGORIES, 0);counts['best']=2
         (folder/f'{key}-white.json').write_text(json.dumps(dict(version=1,complete=True,moves=2,counts=counts)))
         expect(quality).to_contain_text('1 de 1 partidas analisadas',timeout=20000)
         expect(quality.locator('[data-testid=stVegaLiteChart]')).to_have_count(1)

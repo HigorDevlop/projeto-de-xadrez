@@ -69,7 +69,7 @@ def test_disconnection_stops_at_last_confirmed_heartbeat(training):
 def test_time_expired_without_trail_is_not_success_and_rooms_are_isolated(training):
     teacher,student,pupil,task,clock,owner=training
     visits.begin(pupil)
-    for i in range(7):clock[0]+=10;visits.heartbeat(pupil)
+    for _i in range(7):clock[0]+=10;visits.heartbeat(pupil)
     assert visits.current(pupil)['remaining']==0
     visits.leave(pupil)
     row=visits.history(teacher,student['id'])[0]

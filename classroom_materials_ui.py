@@ -1,9 +1,6 @@
 """Teacher-authored lessons, selected tactics, studied games and exams."""
-from io import StringIO
 import hashlib
 import json
-import chess
-import chess.pgn
 import streamlit as st
 import classroom_materials as materials
 
@@ -30,7 +27,7 @@ def _preview(payload,kind,key):
     note=next((note for note in payload.get('position_notes',[]) if note['ply']==ply and note['fen']==board.fen()),None)
     text=note['text'] if note else node.comment if node else ''
     if text:
-        from classroom_fischer_instructor import render_instructor
+        from classroom_coach_instructor import render_instructor
         from classroom_position_notes import positions
         label=positions(payload['pgn'])[ply]['label'] if kind!='tactic' else 'Posição do exercício'
         render_instructor([dict(label=label,text=text)],key+'_instructor')
@@ -271,7 +268,7 @@ def assigned_training(token,item,*,simulation=False,preview_key=None,on_complete
     st.caption(('Brancas' if side else 'Pretas')+' · seu lado neste exercício')
     if item['kind']=='line' and phase=='learn':
         from classroom_position_notes import visible_notes
-        from classroom_fischer_instructor import render_instructor
+        from classroom_coach_instructor import render_instructor
         notes=visible_notes(item['payload'],progress)
         if notes:render_instructor(notes,key+'_instructor')
     def consume(event):

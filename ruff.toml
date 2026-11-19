@@ -1,0 +1,22 @@
+# Configuração de lint do Coach Chess.
+# Uso: .venv/Scripts/python.exe -m ruff check .
+target-version = "py313"
+line-length = 120
+extend-exclude = [".build-tools", "dist", "engines", "data", "tests/artifacts"]
+
+[lint]
+# Erros reais (pyflakes), bugs prováveis (bugbear) e modernizações seguras.
+select = ["E9", "F", "B", "UP", "C4", "PIE", "RUF100"]
+ignore = [
+    "E701", "E702",  # vários comandos por linha: estilo histórico do projeto
+    "B008",          # chamadas em valores padrão usadas de propósito
+    "B904",          # raise sem "from" em mensagens ao usuário
+    "UP031",         # formatação com % mantida em textos antigos
+    "C408",          # dict(chave=valor) é o padrão adotado no projeto
+    "B905",          # zip() sem strict: comprimentos já garantidos pelo chamador
+]
+
+[lint.per-file-ignores]
+# Fixtures do pytest são importadas e "redefinidas" como parâmetros (F401/F811),
+# e alguns testes executam o app via exec() (F821).
+"tests/**" = ["F401", "F811", "F821", "F841", "B023", "B018"]

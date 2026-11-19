@@ -6,7 +6,7 @@ import classroom_materials as materials
 
 
 def content_inputs(token,student,prefix,kind,instructions,previous=None,position_notes=None,saved_tactics=None):
-    from classroom_materials_ui import _preview,_video_player,LABELS
+    from classroom_materials_ui import _video_player
     payload=None;selected=[];choices={}
     if kind in ('line','game'):
         side='white'
@@ -89,7 +89,6 @@ def content_inputs(token,student,prefix,kind,instructions,previous=None,position
                 with st.expander('Conferir tabuleiro e comentários',key=prefix+'_preview_drawer_'+kind,on_change='rerun',icon=':material/visibility:') as preview:
                     if preview.open:edit_position_notes(payload,prefix,frames,cache)
             except ValueError as error:st.caption(str(error))
-        save_label='Disponibilizar '+LABELS[kind].lower()
     elif kind=='tactic':
         from classroom_tactic_inputs import tactic_inputs
         payload=tactic_inputs(prefix,instructions,saved_tactics)
@@ -115,7 +114,6 @@ def content_inputs(token,student,prefix,kind,instructions,previous=None,position
                     identifier=community.publish_video(token,video_title,url=url,media=upload.getbuffer() if upload else None,mime=mime,room=room)
                     st.session_state[prefix+'_new_video']=identifier;st.rerun()
                 except (ValueError,PermissionError) as error:st.error(str(error))
-        save_label='Disponibilizar vídeo'
     elif kind=='note':
         payload=dict(text=st.text_area('Anotação',height=180,key=prefix+'_note'),instructions=instructions)
     else:
@@ -144,7 +142,7 @@ def content_inputs(token,student,prefix,kind,instructions,previous=None,position
                         answer=st.text_area('Gabarito / respostas aceitas (opcional)',key=key+'_answer',height=90)
                 weight=st.number_input('Pontos',min_value=1,max_value=100,value=1,key=key+'_weight')
                 questions.append(dict(kind='closed' if closed else 'open',prompt=prompt,weight=weight,options=options,answer=answer))
-        payload=dict(questions=questions,instructions=instructions);save_label='Salvar prova'
+        payload=dict(questions=questions,instructions=instructions)
     if payload is None and selected:
         puzzle=choices[selected[0]]
         payload=dict(fen=puzzle.fen,solution=list(puzzle.solution),source='Lichess · '+puzzle.id,instructions=instructions)

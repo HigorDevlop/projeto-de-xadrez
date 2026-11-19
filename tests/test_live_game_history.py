@@ -1,4 +1,4 @@
-from datetime import datetime,timezone
+from datetime import datetime,timezone, UTC
 import chesscom
 from live_game_history import merge
 
@@ -21,7 +21,7 @@ def test_refresh_queries_recent_months_without_the_archive_index(monkeypatch):
     monkeypatch.setattr(chesscom,'fetch_archives',lambda *_: (_ for _ in ()).throw(AssertionError('stale archive index')))
     result=chesscom.fetch_latest_finished_games('fixture')
     assert len(result)==2 and len(calls)==2
-    assert calls[0][1]==datetime.now(timezone.utc).strftime('%Y/%m')
+    assert calls[0][1]==datetime.now(UTC).strftime('%Y/%m')
 
 
 def test_background_refresh_adds_game_without_changing_board_or_rerunning_when_unchanged(monkeypatch):

@@ -93,7 +93,7 @@ def render_notebook(pgn,ply):
             state.requested_page='Análise';st.rerun(scope='app')
     identifier=state.setdefault('analysis_notebook_id',game_key(pgn))
     game=chess.pgn.read_game(StringIO(pgn));board=game.board();label='Posição inicial'
-    for index,move in enumerate(list(game.mainline_moves())[:ply]):
+    for _index,move in enumerate(list(game.mainline_moves())[:ply]):
         label=f"{board.fullmove_number}{'.' if board.turn else '...'} {board.san(move)}"
         board.push(move)
     mode=st.radio('Anotar sobre',['Posição atual','Resumo da partida'],horizontal=True,key='analysis_notebook_mode')

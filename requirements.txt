@@ -4,4 +4,4 @@ pandas>=2.2,<4
 pypdf>=6.0,<7
 Pillow>=10,<13
 pypdfium2>=5.0,<6
-chessvision==0.13.0
+chessvision==0.13.1

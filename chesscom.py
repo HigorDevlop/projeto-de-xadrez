@@ -1,7 +1,7 @@
 """Read-only Chess.com public archives. Requests are sequential and bounded."""
 import json
 import re
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -10,7 +10,7 @@ API = "https://api.chess.com/pub/player/"
 
 def fetch_latest_finished_games(username):
     """Refresh recent months directly, without waiting for the archive index cache."""
-    now=datetime.now(timezone.utc)
+    now=datetime.now(UTC)
     previous=now.replace(day=1)
     from datetime import timedelta
     previous-=timedelta(days=1)

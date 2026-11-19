@@ -32,7 +32,7 @@ def test_complete_automatic_report_replaces_partial_counts_but_preserves_full_ma
     record=window([archived(1)],'player')[0];game=record['game'];key=quality_key(game)
     save_game_quality(game,[review(1,'Brancas','good')])
     path=auto._path(key,'white');path.parent.mkdir(parents=True)
-    counts={name:0 for name in auto.individual_counts(key,'white')};counts['best']=2
+    counts=dict.fromkeys(auto.individual_counts(key, 'white'), 0);counts['best']=2
     path.write_text(json.dumps(dict(version=1,complete=True,moves=2,counts=counts)))
     games=[dict(quality_key=key,side='white')]
     assert quality_counts(games)[0]['best']==2

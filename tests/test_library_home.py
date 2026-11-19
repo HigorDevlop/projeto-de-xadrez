@@ -75,7 +75,7 @@ def test_reader_pagination_and_editor_do_not_change_main_game(tmp_path, monkeypa
     monkeypatch.setenv('ACERVO_USER_PREFERENCE', str(tmp_path/'user.json'))
     monkeypatch.setenv('ACERVO_APPEARANCE_PREFERENCE', str(tmp_path/'appearance.json'))
     monkeypatch.setenv('STOCKFISH_PATH', str(tmp_path/'absent'))
-    for module in ('interactive_board', 'recent_games', 'study_workspace', 'study_focus', 'book_position_ui', 'study_entrance', 'profile_avatar',
+    for module in ('interactive_board', 'recent_games', 'study_workspace', 'study_focus', 'book_position_ui', 'profile_avatar',
                    'page_chrome', 'cat_mascot', 'tactics_forge', 'tactic_demo', 'pgn_clipboard'):
         sys.modules.pop(module, None)
     at = AppTest.from_string('''

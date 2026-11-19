@@ -25,7 +25,7 @@ def test_entry_artwork_login_and_tactics_without_forge(browser_page,coach_server
     expect(image).to_be_visible()
     expect(page.get_by_role('textbox',name='Usuário',exact=True)).to_be_visible()
     assert image.evaluate('(img)=>img.complete && img.naturalWidth>1000')
-    expect(page.locator('.legends-names span')).to_have_text(['Bobby Fischer','Magnus Carlsen','Mikhail Tal','Garry Kasparov'])
+    expect(page.locator('.legends-names span')).to_have_text(['Aberturas','Táticos','Análise','Finais'])
     previews = Path(__file__).resolve().parents[1]/'.build-tools/previews'
     previews.mkdir(parents=True,exist_ok=True)
     page.screenshot(path=str(previews/'welcome-desktop.png'),full_page=True)
@@ -38,7 +38,7 @@ def test_entry_artwork_login_and_tactics_without_forge(browser_page,coach_server
     page.get_by_role('textbox',name='Senha',exact=True).fill('welcome-test-password')
     page.get_by_role('button',name='Entrar',exact=True).click()
     page.set_viewport_size({'width':1440,'height':1000})
-    page.locator('.st-key-sidebar_navigation a').filter(has_text='Táticos').click()
+    page.locator('.st-key-sidebar_navigation a').filter(has_text='Tático').click()
     expect(page.locator('[data-testid=stException]')).to_have_count(0)
     page.get_by_role('button',name='Mate em 1',exact=True).click()
     expect(page.locator('.st-key-tactics_board_panel .board')).to_be_visible()

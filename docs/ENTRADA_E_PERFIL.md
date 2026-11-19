@@ -1,6 +1,6 @@
 # Entrada e perfil
 
-A entrada usa a arte local `assets/chess-legends-welcome.png`, uma composição gerada com Bobby Fischer, Magnus Carlsen, Mikhail Tal e Garry Kasparov. Não requer internet nem representa uma fotografia histórica dos quatro juntos. O prompt e a ferramenta usados constam em `assets/CHESS_LEGENDS_WELCOME.md`.
+A entrada usa a fotografia local `assets/welcome-king.jpg` (um rei preto de pé entre peças brancas derrubadas), em domínio público (CC0 1.0, via rawpixel), sem retratar pessoas. Não requer internet.
 
 Quem precisa entrar vê o formulário ao lado da arte. Quando o acesso automático está salvo, a mesma entrada oferece **Continuar para o aplicativo**. Ela aparece uma vez por sessão; navegar entre as abas não abre a entrada novamente.
 

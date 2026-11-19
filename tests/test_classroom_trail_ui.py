@@ -230,7 +230,7 @@ def test_teacher_writes_instructions_beside_each_position_and_student_sees_them(
     slider.focus();slider.press('ArrowRight')
     expect(dialog.locator('[data-square=e5] svg')).to_have_count(1)
     field.fill('Agora desenvolva o cavalo para f3.');field.press('Tab')
-    expect(dialog.locator('.fischer-coach .commentary p')).to_have_text('Agora desenvolva o cavalo para f3.')
+    expect(dialog.locator('.coach-instructor .commentary p')).to_have_text('Agora desenvolva o cavalo para f3.')
     page.screenshot(path='tests/artifacts/classroom-position-instruction-editor.png',full_page=True)
     dialog.get_by_text('Conferir tabuleiro e comentários',exact=True).click()
     dialog.get_by_role('button',name='Salvar atividade',exact=False).click()

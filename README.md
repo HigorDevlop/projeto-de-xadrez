@@ -1,6 +1,6 @@
 # Coach Chess
 
-O aplicativo exige login. O criador configura seu **Superadministrador** com **Configurar Superadministrador.bat** e emite as chaves especiais que autorizam professores. Cada chave fica vinculada a um único Professor, é obrigatória em todo login manual e libera uma sala de quatro alunos. As chaves são emitidas na aba privada Superadministrador, acessada por Usuários. O Superadministrador acessa todos os professores e alunos; cada Professor gerencia apenas sua sala. O acesso automático é opcional e revogável. Consulte [TUTORIAL_LOGIN.md](TUTORIAL_LOGIN.md) e [TUTORIAL_PROFESSOR.md](TUTORIAL_PROFESSOR.md). Professor, criador e alunos precisam usar o mesmo servidor para compartilhar os dados.
+O aplicativo exige login. O criador configura seu **Superadministrador** com **Configurar Superadministrador.bat** e emite as chaves especiais que autorizam professores. Cada chave fica vinculada a um único Professor, é obrigatória em todo login manual e libera uma sala de quatro alunos. As chaves são emitidas na aba privada Superadministrador, acessada por Usuários. O Superadministrador acessa todos os professores e alunos; cada Professor gerencia apenas sua sala. O acesso automático é opcional e revogável. Consulte [TUTORIAL_LOGIN.md](docs/TUTORIAL_LOGIN.md) e [TUTORIAL_PROFESSOR.md](docs/TUTORIAL_PROFESSOR.md). Professor, criador e alunos precisam usar o mesmo servidor para compartilhar os dados.
 
 Execute `python iniciar.py` nesta pasta e abra http://127.0.0.1:8501. O inicializador cria o ambiente virtual e instala as dependências. No Windows, também há `iniciar.bat` e `iniciar.ps1`.
 
@@ -14,13 +14,19 @@ Cada curso tem as abas **Curso / Armadilhas / Variações**. Durante o treino, o
 
 O progresso, as posições aprendidas e a sequência diária são reais e ficam salvos. As avaliações vêm do Stockfish local; o perfil usa o histórico de partidas carregado, sem copiar os números dos prints. As conquistas aparecem ao atingir a meta indicada no curso. As referências orientam a aparência e o fluxo; o conteúdo das linhas e as estatísticas pertencem a esta implementação local.
 
-Veja o [tutorial para testar a versão desktop](TESTAR_DESKTOP.md).
+Veja o [tutorial para testar a versão desktop](docs/TESTAR_DESKTOP.md).
 
 O progresso continua em `data/preparation/openings/`. A janela usa um servidor restrito ao computador (`127.0.0.1`); não publica o aplicativo na internet. O processo local permanece ativo ao fechar a janela. O registro de inicialização fica em `data/desktop/server.log`. Para usar uma aba comum, execute `iniciar.bat`.
 
 ## Interface
 
-O tema global usa fundo `#0a0a0a`, superfícies `#121212`, degradês discretos e bordas minimalistas. A identidade e os ícones do aplicativo são Coach Chess, com logo preto e branco. A barra lateral do aluno mostra apenas **Análise** e **Aberturas**. O **Professor** também tem **Modo Preparo**, com edição exclusiva de rotinas e dashboard da sala. O aplicativo abre em Análise; o inicializador desktop abre diretamente em Aberturas.
+O tema global é escuro, com fundo azul-marinho `#020d20`, superfícies `#062038`, acentos ciano `#0c92ae` e bordas minimalistas (definidos em `.streamlit/config.toml`). A identidade e os ícones do aplicativo são Coach Chess, com logo preto e branco. As páginas visíveis na barra lateral dependem do perfil (veja `workspace_access.py`):
+
+- **Aluno/usuário:** Partida, Análise, Tático, Estudo com livros e Aberturas; **Preparo** aparece quando está em uma sala e **Vídeos** quando há aulas gravadas.
+- **Professor:** Partida, Desempenho, Análise, Estudo com livros, Tático, Preparo e Aberturas.
+- **Superadministrador:** todas as páginas, incluindo Anotações e Usuários.
+
+O aplicativo abre em Análise; o inicializador desktop abre diretamente em Aberturas.
 
 A referência principal é [Refactoring UI, de Adam Wathan e Steve Schoger](https://refactoringui.com/), com apoio dos princípios de contraste, repetição, alinhamento e proximidade apresentados na descrição de [The Non-Designer’s Design Book, de Robin Williams](https://www.pearson.com/en-us/subject-catalog/p/non-designers-design-book-the/P200000000691?view=educator). A reforma aplica os princípios publicados nas apresentações dessas obras; não depende de reproduzir páginas nem pressupõe a leitura integral dos livros.
 
@@ -64,7 +70,7 @@ Uma **lupa no canto superior direito** abre **Pergunta rápida**. A caixa fica e
 
 **Configurações**, com a engrenagem na barra esquerda, reúne o tema **Claro/Escuro**, o **Fundo de tela**, a biblioteca de **Livros** e as opções de tabuleiro, treino e exportação. O fundo padrão é discreto e liso; **Restaurar fundo do tema** remove uma imagem personalizada. O tema aplica uma paleta única a formulários, menus, anotações, avaliações, recorte da foto e explicações; a preferência é salva localmente. A barra lateral inicia recolhida; ao abri-la, aparecem o perfil, o atalho para a conta e os quatro destinos principais.
 
-A barra lateral principal apresenta **Partida, Análise, Tático, Preparo e Aberturas**. Anotações continuam disponíveis na área de análise e o estudo de livros também pode ser aberto pelo atalho do painel.
+As páginas da barra lateral variam conforme o perfil, como descrito em **Interface**. Anotações continuam disponíveis na área de análise e o estudo de livros também pode ser aberto pelo atalho do painel.
 
 **Aberturas** oferece treino livre de um repertório: escolha a abertura e o lado, aprenda com setas e repita de memória. Você pode continuar o treino em outro dia ou começar novamente. Esse progresso é salvo em `data/preparation/openings/`, separado do calendário de preparo.
 

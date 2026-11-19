@@ -68,7 +68,7 @@ def analyze(record,engine_path,cancel=None,progress=None):
     if ready(record):return
     cancel=cancel or Event();progress=progress or (lambda *_:None)
     board=record['game'].board();moves=list(record['game'].mainline_moves())
-    counts=Counter({key:0 for key in CATEGORIES});rows=[];done=0;total=expected_moves(record)
+    counts=Counter(dict.fromkeys(CATEGORIES, 0));rows=[];done=0;total=expected_moves(record)
     limit=chess.engine.Limit(depth=16,time=.08)
     kwargs={'creationflags':subprocess.CREATE_NO_WINDOW} if os.name=='nt' else {}
     while not _ENGINE_LOCK.acquire(timeout=.1):check_cancelled(cancel)
@@ -138,7 +138,7 @@ class AnalysisQueue:
                     return
                 _,_,key,record,engine=heapq.heappop(self.pending);job=self.jobs[key];job['status']='running'
             try:
-                self.analyzer(record,engine,progress=lambda done,total:job.update(done=done,total=total))
+                self.analyzer(record,engine,progress=lambda done,total,job=job:job.update(done=done,total=total))
                 job['status']='done'
             except Exception as error:
                 job.update(status='error',error=str(error),retry_at=self.clock()+120)

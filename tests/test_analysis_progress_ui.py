@@ -13,7 +13,9 @@ def progress_server(tmp_path,monkeypatch,request):
 import sys,runpy,time
 sys.path.insert(0,{str(root)!r})
 import stockfish_analysis
-original=stockfish_analysis.analyse_with_books
+# Cada execução da página roda este arquivo de novo; embrulhe só a função original.
+original=getattr(stockfish_analysis,'_unmeasured',stockfish_analysis.analyse_with_books)
+stockfish_analysis._unmeasured=original
 def measured(*args,progress=None,**kwargs):
     def report(done,total,phase,*engine):
         if progress:progress(done,total,phase,*engine)
@@ -52,5 +54,6 @@ def test_progress_is_centered_updates_and_disappears_without_rebuilding_board(br
     path.parent.mkdir(exist_ok=True)
     page.screenshot(path=str(path))
     expect(panel).to_have_count(0,timeout=30000)
-    expect(page.locator('.quality-summary')).to_contain_text('Stockfish')
+    # Na aba Análise o resumo fica no painel do tabuleiro (analysis_sidebar_html).
+    expect(page.locator('.review-footnote')).to_contain_text('Stockfish',timeout=30000)
     expect(page.locator('[data-testid="stException"]')).to_have_count(0)

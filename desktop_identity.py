@@ -95,7 +95,7 @@ def apply_to_browser(profile,url,root,python):
     from urllib.parse import urlparse
     initialized=C.windll.ole32.CoInitializeEx(None,2)>=0
     try:
-        for attempt in range(5):
+        for _attempt in range(5):
             windows=browser_windows(Path(profile).resolve(),urlparse(url).port)
             if windows:
                 for hwnd in windows:identify_window(hwnd,root,python)

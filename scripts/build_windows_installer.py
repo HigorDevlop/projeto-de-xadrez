@@ -36,8 +36,10 @@ def copy_application(target):
         shutil.copytree(ROOT/name,target/name,dirs_exist_ok=True)
     config=target/'.streamlit';config.mkdir(exist_ok=True)
     shutil.copy2(ROOT/'.streamlit/config.toml',config/'config.toml')
-    for name in ('README.md','TESTAR_DESKTOP.md','MOBILE_OFFLINE.md','DISTRIBUIR_WINDOWS.md','PAINEL_CENTRAL.md'):
-        shutil.copy2(ROOT/name,target/name)
+    shutil.copy2(ROOT/'README.md',target/'README.md')
+    shutil.copytree(ROOT/'docs'/'img',target/'docs'/'img',dirs_exist_ok=True)
+    for name in ('TESTAR_DESKTOP.md','MOBILE_OFFLINE.md','DISTRIBUIR_WINDOWS.md','PAINEL_CENTRAL.md'):
+        shutil.copy2(ROOT/'docs'/name,target/'docs'/name)
     engines=target/'engines';engines.mkdir(exist_ok=True)
     for name in ('stockfish.exe','Stockfish-COPYING.txt','README.md'):
         shutil.copy2(ROOT/'engines'/name,engines/name)

@@ -24,7 +24,7 @@ import sys,json,ast
 from pathlib import Path
 sys.path.insert(0,{str(root)!r})
 import streamlit as st
-from datetime import datetime,timezone
+from datetime import datetime,timezone,UTC
 from time import perf_counter
 from concurrent.futures import Future
 from chess_review import read_games
