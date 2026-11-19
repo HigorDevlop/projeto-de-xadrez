@@ -74,3 +74,14 @@ render_analysis_summary(reviews, {'white': 91.4}, dark=True)
     assert '91,4%' in html and '<small>Chess.com</small>' in html
     assert html.count('role="meter"') == 2 * len(CATEGORIES)
     assert 'Sem lances analisados' in html
+
+
+def test_accuracy_penalizes_isolated_errors_without_changing_perfect_play():
+    import math
+    samples=[review(ply=1,expected_loss=0),review(ply=3,expected_loss=.2)]
+    second=103.1668*math.exp(-.04354*20)-3.1669
+    expected=((100+second)/2+2/(1/100+1/second))/2
+    assert player_accuracy(samples,'Brancas')==round(expected,1)
+    assert player_accuracy(list(reversed(samples)),'Brancas')==round(expected,1)
+    assert player_accuracy([review()], 'Brancas')==100
+    assert player_accuracy([], 'Brancas') is None

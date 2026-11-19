@@ -55,3 +55,19 @@ Os valores de rating, avaliações, vitórias e sequência diária refletem os s
 ## Se a janela não abrir
 
 Abra **iniciar.bat** e use o endereço informado no terminal. O registro do inicializador desktop fica em **data/desktop/server.log**. Fechar a janela mantém o servidor local ativo; abrir o inicializador novamente pode usar outra porta disponível.
+
+## Abertura mais leve e trilhas pessoais
+
+- Abra o aplicativo e confira que o menu pode ser usado enquanto o catálogo é preparado em segundo plano. Com Chess.com vinculado, o catálogo opcional só é montado ao abri-lo.
+- A biblioteca completa só é lida ao entrar em Análise ou Estudo com livros; gráficos e editor são importados quando necessários.
+- Troque de aba, abra um livro e volte à análise: os arquivos e a assinatura da biblioteca são reutilizados enquanto não houver mudança. Trocar de conta descarta esse cache privado.
+- Em Aberturas, confira o catálogo e a trilha original de 50 fases. Ao preparar continuações, as respostas adversárias frequentes nas últimas 200 partidas são consideradas dentro da abertura; fases, quizzes e progresso permanecem iguais.
+- O desktop não monitora alterações de arquivos em produção. A manutenção reinicia o servidor local; o inicializador continua verificando alterações e reutilizando a origem da janela para preservar o login.
+
+
+### Análise e conclusão de linha
+
+- Ao analisar, conferir uma única legenda abaixo da área de importação.
+- O painel ao lado do tabuleiro oferece Resumo, Anotações e Caderno. Resumo compara os jogadores, precisão, categorias e a curva de avaliação. Anotações mantém os lances clicáveis com relevo.
+- A precisão local combina médias ponderada pela volatilidade e harmônica; continua sendo uma estimativa local, distinta do percentual oficial importado do Chess.com. Os orçamentos por posição são 0,2 s (rápida), 1 s (equilibrada) e 3 s (profunda), além da verificação de lances críticos.
+- Após o quiz no preparo, escolher continuar ou parar. Nenhuma navegação deve ocorrer antes da escolha; após fechar não pode restar peça flutuante na página.

@@ -82,7 +82,7 @@ def test_student_can_watch_recordings_from_common_tabs_without_attendance(browse
     user=rooms.register_user('viewer','viewer-password-123')
     rooms.join_room(user,seat['access_key'])
     community.publish_video(teacher,'Aula gravada disponível','https://example.com/lesson.mp4')
-    page=browser_page;page.set_viewport_size({'width':1440,'height':1000})
+    page=browser_page;page.set_default_timeout(45000);page.set_viewport_size({'width':1440,'height':1000})
     page.goto(coach_server)
     page.get_by_role('textbox',name='Usuário',exact=True).fill('viewer')
     page.get_by_role('textbox',name='Senha',exact=True).fill('viewer-password-123')

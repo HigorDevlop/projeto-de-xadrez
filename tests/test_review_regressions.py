@@ -95,6 +95,7 @@ def test_switching_accounts_drops_previous_game_and_background_jobs(monkeypatch)
                   jobs={'history':('old', job)}, analysis_cancel=cancel,
                   dashboard_history_games=[{'pgn':'old'}], prep_plan={'username':'old'},
                   study_files=(('Privado.txt', b'old'),), library_uploads=(),
+                  _analysis_files=(('Privado.txt',b'old'),),_analysis_library_id='old',_book_sources_cache=('old',),
                   study_book_upload_3=['old upload'], study_upload_revision=3,
                   tab_history=['Usuários'], board_revision=3, analysis_generation=2,
                   book_revision=4, puzzle_revision=6)
@@ -107,6 +108,7 @@ def test_switching_accounts_drops_previous_game_and_background_jobs(monkeypatch)
     assert state.jobs == {} and job.cancelled() and cancel.is_set()
     assert state.dashboard_history_games == [] and not state.get('prep_plan')
     assert state.study_files == () and not state.tab_history
+    assert all(key not in state for key in ('_analysis_files','_analysis_library_id','_book_sources_cache'))
     assert 'study_book_upload_3' not in state and state.study_upload_revision > 3
     assert state.book_revision > 4 and state.puzzle_revision > 6
 

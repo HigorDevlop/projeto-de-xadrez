@@ -144,15 +144,7 @@ def render_opening_practice(username, dark=False):
         from opening_reference_endgames import render_endgames
         render_endgames()
     elif not plan or state.get('openings_catalog') or ('personal_lines' in plan and not state.get('openings_active')):
-        if plan:
-            from opening_achievements_ui import render_achievements
-            render_achievements(plan)
-        if not task:
-            from personal_openings_ui import render_personal_openings
-            render_personal_openings(username, chesscom_account)
-            st.subheader('Cursos complementares')
-        if task: opening_home(plan,start_opening,allowed_ids=task['openings'])
-        else: opening_home(plan,start_opening)
+        opening_home(plan,start_opening,allowed_ids=task['openings'] if task else None)
     elif state.get('openings_active'):
         render_lesson(plan,save,back,dark)
         if state.pop('openings_scroll_top',False): scroll_course_top()
@@ -196,11 +188,11 @@ def render_opening_practice(username, dark=False):
                 st.button('Todas as aberturas',on_click=catalog,type='tertiary',icon=':material/chevron_left:')
                 st.button('Sequência diária',on_click=lambda:state.update(openings_overlay='streak'),type='tertiary',icon=':material/local_fire_department:')
                 st.button('Perfil',on_click=lambda:state.update(openings_overlay='profile'),type='tertiary',icon=':material/person:')
+                from opening_achievements_ui import render_achievements
+                render_achievements(plan,compact=True)
             st.html(title_html(title,medal=False))
             rank_card(plan)
-            from opening_achievements_ui import render_achievements
             from opening_levels_ui import render_levels
-            render_achievements(plan)
             if not task:
                 render_levels(plan,save,start)
             if state.get('openings_course_tab') not in ('Curso','Armadilhas','Variações'):

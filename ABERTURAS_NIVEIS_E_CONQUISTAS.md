@@ -16,6 +16,12 @@ O nível de preparação define o máximo de posições por rodada:
 
 Quizzes maiores revisitam posições da própria linha, sem trazer outra abertura. Erros e dicas fazem a pergunta voltar à fila. Todas as perguntas precisam ser recuperadas corretamente para concluir. Recomendações pessoais e atividades de sala mantêm seus quizzes específicos.
 
-**Conquistas** mostra os marcos de linhas aprendidas, fundamentos, profundidade e quizzes concluídos. **Memória de mestre** exige concluir de fato uma rodada com 50 posições, com todas recuperadas corretamente. Só abrir o quiz, atingir 13 lances, usar uma rodada menor ou explorar o tabuleiro não concede essa conquista. As datas e os marcos ficam salvos por conta local junto do progresso; alternar entre cursos preserva a coleção.
+**Conquistas** mostra os marcos de linhas aprendidas, fundamentos, profundidade e quizzes concluídos **da abertura selecionada**. Cada curso tem sua própria coleção, datas e progresso; conquistas da Italiana não aparecem como concluídas na Caro-Kann. Trocar de curso e voltar restaura a coleção correspondente, sem apagar o histórico anterior. A biblioteca de cursos salvos continua preservada, mas não é somada ao painel da abertura atual.
+
+**Memória de mestre** exige concluir de fato uma rodada com 50 posições, com todas recuperadas corretamente. Só abrir o quiz, atingir 13 lances, usar uma rodada menor ou explorar o tabuleiro não concede essa conquista. As datas e os marcos ficam salvos por conta local junto do progresso.
+
+O cartão de progresso exibe o rank e o nível reais dessa abertura, os pontos, as posições aprendidas e a quantidade de conquistas. A trilha mantém 50 fases numeradas, com fases Boss diferenciadas a cada cinco e a precisão registrada nas fases concluídas. O visual usa medalhas, sombras suaves e estados distintos para a fase atual, as concluídas e as bloqueadas.
 
 Não foi criada nova versão nem outro instalador. Aplique o código à instalação existente executando **Aplicar correções no Coach Chess.cmd**, confirme a manutenção do Windows e reabra o aplicativo.
+
+As conquistas da abertura ficam no botão de troféu do menu superior, ao lado de Perfil. Ao clicar, a coleção abre em uma janela; Esc fecha a janela. A seção Continuar a trilha foi removida: o mapa de fases e o botão Treinar continuam sendo os acessos ao treino.

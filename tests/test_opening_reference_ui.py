@@ -2,6 +2,7 @@ import time
 import pytest
 from test_browser_components import browser_page
 from test_opening_course_ui import course_server, saved, current, ROOT
+from test_endgame_training import endgame_server
 
 
 @pytest.mark.parametrize('width',[1440,390])
@@ -22,7 +23,16 @@ def test_reference_catalog_and_course(browser_page,course_server,width):
     expect(page.locator('.grid .card')).to_have_count(1)
     page.locator('[data-id=english]').click()
     expect(page.get_by_role('heading',name='English Opening',exact=True)).to_be_visible()
-    expect(page.locator('.reference-rank')).to_be_visible()
+    expect(page.locator('.opening-progress-card')).to_be_visible()
+    expect(page.get_by_text('Continuar a trilha',exact=True)).to_have_count(0)
+    trophy=page.locator('.st-key-opening_achievements_button button')
+    expect(trophy).to_have_count(1)
+    expect(trophy).to_be_visible()
+    trophy.click()
+    expect(page.get_by_role('dialog')).to_be_visible()
+    expect(page.get_by_role('dialog')).to_contain_text('Conquistas desta abertura')
+    page.keyboard.press('Escape')
+    expect(page.get_by_role('dialog')).to_have_count(0)
     expect(page.locator('.node.current')).to_have_count(1)
     page.screenshot(path=str(ROOT/f'tests/artifacts/reference-course-{width}.png'),full_page=True)
     page.get_by_role('button',name='Treinar',exact=True).click()
@@ -119,17 +129,26 @@ def test_reference_profile_and_award_vectors(browser_page, course_server, screen
     assert page.locator('[data-testid=stException]').count() == 0
 
 
-def test_reference_endgame_is_playable(browser_page,course_server):
+def test_reference_endgame_is_playable(browser_page,endgame_server):
     from playwright.sync_api import expect
     expect.set_options(timeout=30000)
     page=browser_page
-    page.goto(course_server[0])
+    from urllib.parse import urlparse
+    page.route('**/*', lambda route: route.continue_() if urlparse(route.request.url).hostname == '127.0.0.1' else route.abort())
+    page.goto(endgame_server)
     page.locator('.st-key-reference_nav_Finais button').click(timeout=30000)
-    expect(page.get_by_text('Encontre o mate em um lance.',exact=True)).to_be_visible()
-    page.locator('[data-square=g6]').click()
-    page.locator('[data-square=g7]').click()
-    expect(page.get_by_text('Bom trabalho!',exact=True)).to_be_visible()
-    page.get_by_role('button',name='Recomeçar',exact=True).click()
-    expect(page.get_by_text('Encontre o mate em um lance.',exact=True)).to_be_visible()
+    page.get_by_role('button',name='Abrir Oposição direta',exact=True).click()
+    page.locator('[data-square=e3]').click()
+    page.locator('[data-square=e4]').click()
+    expect(page.get_by_text('Você jogou Ke4.',exact=False)).to_be_visible()
+    page.reload()
+    page.locator('.st-key-reference_nav_Finais button').click(timeout=30000)
+    expect(page.get_by_text('Você jogou Ke4.',exact=False)).to_be_visible()
+    page.get_by_role('button',name='Repetir a posição',exact=True).click()
+    expect(page.get_by_role('button',name='e3: rei branco',exact=True)).to_be_visible()
+    page.locator('[data-square=e3]').click()
+    page.locator('[data-square=e4]').click()
+    expect(page.get_by_text('Lição concluída. Próxima revisão:',exact=False)).to_be_visible()
+    expect(page.get_by_role('button',name='Abrir O rei à frente do peão',exact=True)).to_be_enabled()
     page.locator('.st-key-reference_nav_Aberturas button').click()
     expect(page.locator('.home')).to_be_visible()

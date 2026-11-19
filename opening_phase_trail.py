@@ -3,7 +3,7 @@ import streamlit as st
 
 TRAIL=st.components.v2.component('opening_phase_map',
     html='<div class="course-trail" role="group" aria-label="Trilha de 50 fases"></div>',
-    css='''
+    css="""
     *{box-sizing:border-box}.course-trail{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:36px 16px;padding:30px 16px 40px;max-width:1100px;margin:auto;font-family:system-ui}
     .step{display:flex;justify-content:center;position:relative;min-width:0;padding:8px 0}
     .step:before{content:'';position:absolute;left:-50%;right:50%;top:50%;height:2px;background:#30332e;z-index:0}.step:nth-child(5n+1):before{display:none}
@@ -18,7 +18,20 @@ TRAIL=st.components.v2.component('opening_phase_map',
     .node:disabled{cursor:default}.node:not(:disabled):hover{transform:translateY(-3px)}.node:focus-visible{outline:3px solid #f3d293;outline-offset:6px}
     @media(max-width:600px){.course-trail{gap:25px 6px;padding:20px 6px}.node{width:49px;height:49px;font-size:17px}.node.boss{border-radius:18px}.done{width:20px;height:20px;font-size:10px}}
     @media(prefers-reduced-motion:reduce){.node{transition:none}}
-    ''',
+
+    .course-trail{padding:26px 16px 35px;gap:28px 14px;border:1px solid #7585622b;border-radius:18px;background:radial-gradient(ellipse at top left,#a07a2e0b,transparent 60%),#101815}
+    .step:before{height:1px;background:linear-gradient(90deg,#344238,#4b5948)}.step:has(.learned):before{background:#427e60}
+    .node{width:66px;height:66px;font-size:20px;border-color:#6b7b5b55;background:linear-gradient(145deg,#273429,#17201a);box-shadow:inset 0 1px #ffffff16,0 5px 0 #0c140e,0 10px 20px #0004;color:#83927b}
+    .node.current{background:linear-gradient(145deg,#ceaa64,#926e32);border-color:#ead49b;outline:2px solid #c2a26950;outline-offset:5px;box-shadow:inset 0 1px #fff4,0 5px 0 #5b4221,0 8px 28px #d4ad6127;color:#fff8e7}
+    .node.learned{background:linear-gradient(145deg,#3f9978,#24624c);border-color:#71b091;box-shadow:inset 0 1px #fff3,0 5px 0 #173e30}
+    .node.boss{border-radius:22px;background:linear-gradient(145deg,#3b3545,#25202e);border-color:#af955a;color:#c6b68e}
+    .node.boss.current{background:linear-gradient(145deg,#8b626b,#50374e);border-color:#f0cf91}
+    .node.boss.learned{background:linear-gradient(145deg,#b69756,#756035);border-color:#e1c989}
+    .node:not(:disabled):hover{transform:translateY(-2px);filter:brightness(1.12)}.done{width:21px;height:21px;font-size:11px;border-color:#101815}
+    @media(max-width:600px){.course-trail{gap:21px 5px;padding:22px 8px}.node{width:46px;height:46px;font-size:16px}.node.boss{border-radius:16px}.node.current{outline-offset:3px}.done{width:17px;height:17px;font-size:9px}}
+    
+/* Coach HUD */
+.node{background:linear-gradient(145deg,#07354d,#031327)!important;border-color:#176f88!important;color:#80adc2!important}.node.current{background:linear-gradient(145deg,#0b7793,#06394f)!important;border-color:#42dfea!important;color:#d5fbff!important;outline-color:#12cfe433!important;box-shadow:inset 0 1px #9bffff33,0 6px 0 #031528,0 0 18px #00e9f422!important}.node.learned{border-color:#00b5b9!important;color:#53eee0!important}""",
     js='''export default function({data,parentElement,setTriggerValue}){
       const root=parentElement.querySelector('.course-trail');root.replaceChildren();
       for(const phase of data.phases){

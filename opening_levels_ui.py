@@ -14,8 +14,16 @@ def worker():
 def request_level(plan,line,target,auto_start=False):
     state=st.session_state
     if state.get('openings_level_job'): return
+    # A private snapshot is passed to the worker, never to a new course/trail.
+    account=state.get('archive_user','')
+    history=()
+    if account and not plan['username'].startswith('classroom:'):
+        from personal_openings import remember_history
+        try:history=remember_history(plan['username'],account,state.get('history_games',[]))
+        except OSError:history=state.get('history_games',[])
     state.openings_level_job=dict(owner=plan['username'],course=list(plan['repertoire_ids']),
-        future=worker().submit(prepare_level,deepcopy(plan),deepcopy(line),target),auto_start=auto_start)
+        future=worker().submit(prepare_level,deepcopy(plan),deepcopy(line),target,
+                               history_games=history,account=account),auto_start=auto_start)
 
 
 def render_levels(plan,save,start):
@@ -49,14 +57,7 @@ def render_levels(plan,save,start):
         if phase_number(plan)>50:
             st.success('Trilha concluída · 50 fases. Suas revisões continuam disponíveis.')
             return
-        available,source=next_lesson(plan,lessons)
-        level,quota=quiz_target(plan)
-        with st.expander('Continuar a trilha',icon=':material/route:'):
-            st.caption(f'Fase {min(50,phase_number(plan))} de 50 · {level} lances · {quota} desafios.')
-            if source and st.button(f"Continuar · linha {source['branch']}",disabled=bool(state.get('openings_level_job'))):
-                if available: start(available['id'],'train')
-                else: request_level(plan,source,level,auto_start=True)
-                st.rerun()
+        # The numbered map and its Train button already continue the same phase.
         return
     foundations=[line for line in lessons if line.get('stage')=='foundation']
     progress=plan.get('practice_progress',{})

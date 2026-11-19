@@ -7,12 +7,12 @@ from test_browser_components import browser_page,mount
 
 def test_points_are_persistent_isolated_and_duplicate_safe(tmp_path,monkeypatch):
     monkeypatch.setenv('ACERVO_PREPARATION_DIR',str(tmp_path))
-    assert record('one','first','p1','fork',True,True,12,True)==30
+    assert record('one','first','p1','fork',True,True,12,True)==5
     assert record('one','first','p1','fork',True,True,12,True)==0
-    assert record('one','repeat','p1','fork',True,True,15,True)==5
+    assert record('one','repeat','p1','fork',True,True,15,True)==0
     record('one','wrong','p2','fork',False,False)
     row=summary('one','fork')
-    assert row['xp']==35 and row['solved']==2 and row['hits']==2 and row['errors']==1
+    assert row['xp']==5 and row['solved']==2 and row['hits']==2 and row['errors']==1
     assert row['preparation']==5 and row['known']==1 and row['goal']==20
     assert row['average']==13.5
     assert summary('another','fork')['xp']==0
@@ -21,24 +21,24 @@ def test_points_are_persistent_isolated_and_duplicate_safe(tmp_path,monkeypatch)
 
 def test_rank_increases_and_assisted_solutions_award_less(tmp_path,monkeypatch):
     monkeypatch.setenv('ACERVO_PREPARATION_DIR',str(tmp_path))
-    for i in range(7):assert record('one',str(i),'p'+str(i),'mix',True,True,10)==30
-    assert summary('one')['rank']=='Prata' and summary('one')['xp']==210
-    assert record('one','help','help','mix',True,True,30,False)==20
-    assert summary('one')['known']==8
+    for i in range(40):assert record('one',str(i),'p'+str(i),'mix',True,True,10)==5
+    assert summary('one')['rank']=='Prata 1' and summary('one')['xp']==200
+    assert record('one','help','help','mix',True,True,30,False)==1
+    assert summary('one')['known']==41
 
 
 def test_new_training_clears_metrics_but_keeps_lifetime_rank(tmp_path,monkeypatch):
     monkeypatch.setenv('ACERVO_PREPARATION_DIR',str(tmp_path))
-    for i in range(7):record('one','old:'+str(i),'p'+str(i),'mix',True,True,10)
+    for i in range(40):record('one','old:'+str(i),'p'+str(i),'mix',True,True,10)
     old=summary('one',session='old')
     new=summary('one',session='new')
-    assert old['solved']==7 and old['rank']=='Prata'
-    assert new['rank']=='Prata' and new['xp']==210
+    assert old['solved']==40 and old['rank']=='Prata 1'
+    assert new['rank']=='Prata 1' and new['xp']==200
     assert new['solved']==new['hits']==new['errors']==new['preparation']==0
     assert new['recent']==[] and new['average'] is None
     record('one','new:1','another','mix',True,True,12)
     assert summary('one',session='new')['solved']==1
-    assert summary('one',session='old')['solved']==7
+    assert summary('one',session='old')['solved']==40
 
 
 def test_orbit_drag_keyboard_and_black_transition(browser_page):
@@ -47,8 +47,8 @@ def test_orbit_drag_keyboard_and_black_transition(browser_page):
     data=dict(themes=[dict(id=value,label=label,art=theme_symbol(value)) for label,value in THEMES.items()],token='orbit-test')
     mount(page,'tactics_orbit.py',data)
     expect(page.locator('.orb')).to_have_count(len(THEMES))
-    expect(page.locator('.orb-diagram>svg')).to_have_count(len(THEMES))
-    assert page.locator('[data-theme=fork] .orb-diagram').inner_html()!=page.locator('[data-theme=pin] .orb-diagram').inner_html()
+    expect(page.locator('.orb .orb-diagram>svg')).to_have_count(len(THEMES))
+    assert page.locator('.orb[data-theme=fork] .orb-diagram').inner_html()!=page.locator('.orb[data-theme=pin] .orb-diagram').inner_html()
     stage=page.locator('.orbit-stage').bounding_box()
     page.mouse.move(stage['x']+stage['width']/2,stage['y']+stage['height']*.52)
     page.mouse.down();page.mouse.move(stage['x']+stage['width']/2-205,stage['y']+stage['height']*.52,steps=10);page.mouse.up()
@@ -58,6 +58,7 @@ def test_orbit_drag_keyboard_and_black_transition(browser_page):
     expect(page.locator('.orbit-selection h2')).to_have_text('Cravada')
     page.get_by_role('button',name='Começar').click()
     expect(page.get_by_role('status',name='Carregando treino')).to_be_visible()
+    page.wait_for_function('window.events.length===1')
     assert page.evaluate('window.events[0].value.theme')=='pin'
     page.set_viewport_size({'width':390,'height':844})
     assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
@@ -71,7 +72,7 @@ def test_dashboard_has_pie_preparation_time_and_rank(browser_page,tmp_path,monke
     mount(page,'tactics_dashboard.py',dict(summary('one'),elapsed=62,running=False))
     expect(page.locator('.accuracy')).to_have_text('50%')
     expect(page.locator('.clock')).to_have_text('01:02')
-    expect(page.locator('.rank-name')).to_have_text('Bronze')
+    expect(page.locator('.rank-name')).to_have_text('Bronze 1')
     expect(page.locator('.prepare-detail')).to_have_text('1/50 exercícios diferentes')
     expect(page.get_by_role('img')).to_have_attribute('aria-label','1 acertos e 1 erros')
 
@@ -154,11 +155,11 @@ def test_full_screen_orbit_stats_and_instant_solves(browser_page,tmp_path):
         page.screenshot(path=str(folder/'tactics-orbit.png'),full_page=True)
         page.get_by_role('button',name='Começar',exact=True).click()
         expect(page.locator('.board')).to_be_visible()
-        expect(page.locator('.xp')).to_have_text('360 XP')
-        expect(page.locator('.rank-name')).to_have_text('Prata')
+        expect(page.locator('.xp')).to_have_text('60 XP')
+        expect(page.locator('.rank-name')).to_have_text('Bronze 2')
         page.locator('.board').evaluate('node=>window.tacticBoard=node')
         page.locator('[data-square=d8]').click();page.locator('[data-square=h4]').click()
-        expect(page.locator('.xp')).to_have_text('390 XP')
+        expect(page.locator('.xp')).to_have_text('65 XP')
         assert page.locator('.board').evaluate('node=>node===window.tacticBoard')
         expect(page.locator('.solved')).to_have_text('1 resolvidos')
         expect(page.locator('[data-testid=stException]')).to_have_count(0)

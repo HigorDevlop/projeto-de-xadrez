@@ -65,8 +65,10 @@ def record_achievements(plan, session, line):
     return new
 
 
-def collection(plan):
-    plans=[plan] + list((plan or {}).get('practice_library',{}).values()) if plan else []
+def collection(plan, *, include_library=False):
+    # Course plans already own their awards. The library is a storage index,
+    # not progress to merge into the currently selected opening.
+    plans=([plan] + list(plan.get('practice_library',{}).values()) if include_library else [plan]) if plan else []
     earned,stats={},{}
     for saved in plans:
         earned.update(saved.get('achievements',{}))

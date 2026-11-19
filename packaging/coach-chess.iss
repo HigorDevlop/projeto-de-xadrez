@@ -35,8 +35,8 @@ Name: "desktopicon"; Description: "Criar atalho na Área de Trabalho"; Flags: ch
 Source: "{#Payload}\*"; DestDir: "{app}"; Excludes: "*\__pycache__\*,*.pyc,*\.agents\*"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\.build-tools\vc_redist.x64.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall; Check: NeedVCRuntime
 [Icons]
-Name: "{group}\Coach Chess"; Filename: "{app}\runtime\pythonw.exe"; Parameters: """{app}\app\installed_entry.py"""; WorkingDir: "{app}\app"; IconFilename: "{app}\app\assets\acervo-chess.ico"
-Name: "{autodesktop}\Coach Chess"; Filename: "{app}\runtime\pythonw.exe"; Parameters: """{app}\app\installed_entry.py"""; WorkingDir: "{app}\app"; IconFilename: "{app}\app\assets\acervo-chess.ico"; Tasks: desktopicon
+Name: "{group}\Coach Chess"; Filename: "{app}\runtime\pythonw.exe"; Parameters: """{app}\app\installed_entry.py"""; WorkingDir: "{app}\app"; IconFilename: "{app}\app\assets\acervo-chess.ico"; AppUserModelID: "CoachChess.Desktop"
+Name: "{autodesktop}\Coach Chess"; Filename: "{app}\runtime\pythonw.exe"; Parameters: """{app}\app\installed_entry.py"""; WorkingDir: "{app}\app"; IconFilename: "{app}\app\assets\acervo-chess.ico"; AppUserModelID: "CoachChess.Desktop"; Tasks: desktopicon
 [Run]
 Filename: "{tmp}\vc_redist.x64.exe"; Parameters: "/install /quiet /norestart"; Flags: waituntilterminated runhidden; Check: NeedVCRuntime
 Filename: "{app}\runtime\pythonw.exe"; Parameters: """{app}\app\installed_entry.py"""; WorkingDir: "{app}\app"; Description: "Abrir Coach Chess"; Flags: nowait postinstall skipifsilent runasoriginaluser

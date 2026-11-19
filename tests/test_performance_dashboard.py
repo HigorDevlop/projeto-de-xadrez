@@ -68,7 +68,7 @@ def test_dashboard_renders_both_filters_with_quality_and_empty_states(tmp_path, 
     records = [archived(1), archived(2, result='0-1')]
     game = chess.pgn.read_game(StringIO(records[0]['pgn']))
     save_game_quality(game, [review()])
-    source = f'from performance_dashboard import render_dashboard\nrender_dashboard({records!r}, "player", {dark!r})'
+    source = f'from performance_dashboard import render_dashboard\nrender_dashboard({records!r}, "player", {dark!r},auto_diagnostics=False)'
     app = AppTest.from_string(source, default_timeout=15).run()
     assert not app.exception
     assert len(app.get('vega_lite_chart')) == 4

@@ -257,21 +257,47 @@ class MoveReview:
     best_expected: float | None = None
     played_expected: float | None = None
     engine_name: str = 'Stockfish'
+    accuracy_before: float | None = None
+    accuracy_after: float | None = None
+    best_line: str = ''
+    position_fen: str = ''
 
 
 def player_accuracy(reviews: list[MoveReview], side: str) -> float | None:
-    """Mean of an exponential accuracy estimate using chance-indicator losses.
+    """Local estimate: combine volatility-weighted and harmonic move accuracy.
 
-    This is not Chess.com's CAPS2 or Lichess's weighted game accuracy.
+    Uses the aggregation approach documented at lichess.org/page/accuracy,
+    with our paired root evaluations. It is not an official website score.
     """
-    scores = []
-    for review in reviews:
-        if review.side != side:
-            continue
-        delta = max(0, review.expected_loss) * 100
-        score = 100.0 if delta == 0 else max(0, min(100, 103.1668 * math.exp(-0.04354 * delta) - 3.1669))
-        scores.append(score)
-    return round(sum(scores) / len(scores), 1) if scores else None
+    from analysis_accuracy import game_accuracy
+    current = game_accuracy(reviews, side)
+    if current is not None:
+        return current
+    from statistics import pstdev
+    ordered=sorted(reviews,key=lambda review:review.ply)
+    window=max(2,min(8,len(ordered)//10))
+    chances=[]
+    for review in ordered:
+        if review.played_expected is not None:
+            value=review.played_expected if review.side=='Brancas' else 1-review.played_expected
+        elif review.white_mate is not None:
+            value=float(review.white_mate>0)
+        elif review.white_cp is not None:
+            value=1/(1+math.exp(-.00368208*max(-1000,min(1000,review.white_cp))))
+        else:value=.5
+        chances.append(value*100)
+    scores=[]
+    for index,review in enumerate(ordered):
+        if review.side!=side:continue
+        delta=max(0,review.expected_loss)*100
+        score=100.0 if delta==0 else max(0,min(100,103.1668*math.exp(-.04354*delta)-3.1669))
+        start=max(0,min(index-window+1,len(chances)-window))
+        weight=max(.5,min(12,pstdev(chances[start:start+window])))
+        scores.append((score,weight))
+    if not scores:return None
+    weighted=sum(score*weight for score,weight in scores)/sum(weight for _,weight in scores)
+    harmonic=0 if any(score==0 for score,_ in scores) else len(scores)/sum(1/score for score,_ in scores)
+    return round((weighted+harmonic)/2,1)
 
 
 def export_review(game: chess.pgn.Game, reviews: list[MoveReview]) -> str:
@@ -280,6 +306,9 @@ def export_review(game: chess.pgn.Game, reviews: list[MoveReview]) -> str:
     for ply, node in enumerate(copy.mainline(), 1):
         review = by_ply.get(ply)
         if review is None:
+            continue
+        from move_evidence import matches
+        if not matches(node.board(), review):
             continue
         category = CATEGORIES[canonical_category(review.category)]
         # Preserve existing user comments and annotations.

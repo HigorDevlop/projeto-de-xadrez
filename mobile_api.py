@@ -56,7 +56,9 @@ def create_app():
             except ValueError:length=-1
             if length<0:return JSONResponse({'detail':'Informe o tamanho da requisição.'},status_code=411)
             if length>2*1024*1024:return JSONResponse({'detail':'Requisição excede 2 MB.'},status_code=413)
-        return await call_next(request)
+        response = await call_next(request)
+        response.headers['Cache-Control'] = 'no-store'
+        return response
 
     def throttle(request,name,scope='login'):
         now=time.monotonic()
@@ -142,6 +144,11 @@ def create_app():
         try:return mobile_sync.sync(token,body.device,body.events,body.platform,body.version)
         except ValueError as error:raise HTTPException(409,str(error)) from None
         except PermissionError as error:raise HTTPException(403,str(error)) from None
+
+    @app.get('/v1/sync/checkpoints')
+    def checkpoints(request:Request):
+        try:return {'devices':mobile_sync.checkpoints(bearer(request))}
+        except PermissionError:raise HTTPException(403,'Acesso revogado.') from None
 
     return app
 

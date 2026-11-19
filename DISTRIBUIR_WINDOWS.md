@@ -43,3 +43,7 @@ O cadastro de uma instalação fica livre por padrão. Somente o seu bloqueio ex
 ## Celulares
 
 Este `.exe` não instala em Android nem iPhone. A base de sincronização está descrita em [MOBILE_OFFLINE.md](MOBILE_OFFLINE.md); a interface móvel offline, os motores compatíveis e os instaladores APK/iOS ainda precisam ser concluídos. Não há APK ou IPA pronto nesta entrega.
+
+### Identificação na barra de tarefas
+
+A janela própria do Coach Chess e seus atalhos usam a identificação `CoachChess.Desktop`, o ícone do aplicativo e o comando de reabertura instalado. A manutenção local corrige os atalhos existentes sem reinstalar nem alterar a versão publicada. Se um ícone antigo já estiver fixado e o Windows mantiver sua cópia anterior, desafixe-o e fixe novamente a janela do Coach Chess após reabrir pelo atalho da Área de Trabalho.

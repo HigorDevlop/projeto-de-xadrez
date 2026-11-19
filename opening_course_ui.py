@@ -20,30 +20,7 @@ def scroll_course_top():
     _SCROLL_TOP(key='opening_course_scroll_top',height=0)
 
 
-def lesson_marks(line,session):
-    marks=session.get('quiz_states',{}) if session['mode']=='quiz' else session.get('display_marks',session.get('marks',{}))
-    labels={'pending':'A fazer','wrong':'Erro','unknown':'Não sei','correct':'Certo'}
-    plies=list(session['quiz_states']) if session.get('quiz_bank') and session['mode']=='quiz' else list(learner_plies(line))
-    if session['mode']=='quiz':
-        colors={'pending':('#42a7ef','#359feb','✦'),'wrong':('#c73d50','#b92236','×'),
-                'unknown':('#f3ae20','#855900','?'),'correct':('#66bc24','#52c10c','✓')}
-        cells=[]
-        for key in labels:
-            count=sum(marks.get(str(ply),'pending')==key for ply in plies)
-            tone,fill,symbol=colors[key]
-            if count==0: fill={'pending':'#255e89','wrong':'#641c2a','unknown':'#825800','correct':'#286415'}[key]
-            cells.append(f'<div class="reference-counter {key}" style="--tone:{tone};--fill:{fill}"><small>{labels[key]}</small><div><i>{symbol}</i>{count}</div></div>')
-        st.html('<div class="reference-counters" aria-label="A fazer, erro, não sei e certo">'+''.join(cells)+'</div>')
-    else:
-        cells=[]
-        for number,ply in enumerate(plies,1):
-            mark=marks.get(str(ply),'pending')
-            # Older saved retries may still carry a red mark from the previous
-            # pass. Only show feedback for attempts made in this pass.
-            if mark=='wrong' and str(ply) not in session.get('marks',{}):
-                mark='pending'
-            cells.append(f'<span class="opening-mark {mark}" role="img" aria-label="Lance {number}: {labels[mark]}"></span>')
-        st.html('<div class="opening-marks" role="group" aria-label="Acertos e erros da linha">'+''.join(cells)+'</div>')
+from opening_lesson_marks import lesson_marks
 
 
 @st.fragment
@@ -93,7 +70,9 @@ def render_lesson(plan,save,back,dark=True):
         lessons=course_lines(plan)
         upcoming=next((item for item in lessons if item['unlocked'] and not item['learned']),None)
         if 'personal_lines' in plan:
-            upcoming=None  # Alternative recommendations are chosen explicitly by the learner.
+            trail_ids=plan.get('personal_trail_ids',[])
+            upcoming=next((item for identifier in trail_ids for item in lessons
+                           if item['id']==identifier and not item['learned']),None)
         anchor=next((item for item in lessons if item['id']==session['line_id']),line)
         foundations=[item for item in lessons if item.get('stage')=='foundation']
         from opening_rounds import cycle,next_lesson,target
@@ -149,7 +128,10 @@ def render_lesson(plan,save,back,dark=True):
         with st.container(key='opening_quiz_status'):
             if session.get('quiz_bank') and session['mode']=='quiz':
                 reviewed=len({item['line']['id'] for item in session['quiz_bank'].values()})
-                st.caption(f"Quiz desta linha · {len(session['quiz_bank'])} perguntas · revise os lances até acertar todos." if session.get('course_round') is not None else f"Revisão acumulada · {reviewed} linhas · {len(session['quiz_bank'])}/{session.get('quiz_limit',50)} posições.")
+                if session.get('quiz_error_based'):
+                    st.caption(f"Revisão dos seus erros · {session.get('quiz_pool_size', 0)} posições da abertura · {len(session['quiz_bank'])} desafios. As posições se repetem para fixar os lances.")
+                else:
+                    st.caption(f"Revisão dos lances ensinados · {len(session['quiz_bank'])} desafios · ainda não há erros registrados nesta abertura.")
             elif session['mode']=='quiz':
                 st.caption(f"Quiz · {session.get('quiz_size',len(session['quiz_states']))} posições · limite {session.get('quiz_limit',5)}")
         st.html(f'<div class="reference-meter" role="progressbar" aria-label="Progresso da aula" aria-valuenow="{round(ratio*100)}" aria-valuemin="0" aria-valuemax="100"><span style="width:{ratio*100}%"></span></div>')

@@ -95,6 +95,10 @@ export class OfflineStore {
       // No local deletion is made until the server acknowledges a committed batch.
       const result = await this.transport({device: this.device,
         events: events.map(({id, sequence, payload}) => ({id, sequence, payload}))});
+      // An acknowledgement cannot discard changes made after this batch was sent.
+      if (result.acknowledged !== events[events.length - 1].sequence) {
+        throw new Error('Confirmação não corresponde ao lote enviado; fila preservada.');
+      }
       await this.acknowledge(result.acknowledged);
     }
   }
@@ -106,13 +110,15 @@ export class OfflineStore {
 
 export function syncTransport(baseURL, getToken, platform, version) {
   const url = new URL(baseURL);
-  if (url.protocol !== 'https:' && !['127.0.0.1', 'localhost'].includes(url.hostname)) {
+  if (url.username || url.password || (url.protocol !== 'https:' &&
+      !(url.protocol === 'http:' && ['127.0.0.1', 'localhost'].includes(url.hostname)))) {
     throw new Error('A sincronização exige um endereço HTTPS.');
   }
   return async (batch) => {
     const controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 20000);
     try {
       const response = await fetch(new URL('/v1/sync', url), {method: 'POST', signal: controller.signal,
+        redirect: 'error', credentials: 'omit', cache: 'no-store',
         headers: {'Content-Type': 'application/json', Authorization: `Bearer ${await getToken()}`},
         body: JSON.stringify({...batch, platform, version})});
       if (!response.ok) throw new Error(`Sincronização não concluída (${response.status}); dados locais preservados.`);

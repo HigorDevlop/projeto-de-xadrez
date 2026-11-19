@@ -1,0 +1,2 @@
+# Optional local encrypted continuity drafts; no server or provider is installed.
+cryptography==50.0.2

@@ -105,3 +105,15 @@ def test_notebook_is_private_and_survives_login_with_position_notes(tmp_path,mon
     notebook.save_entry(restored,key,'general','Resumo','','Desenvolver antes de atacar')
     assert len(notebook.entries(restored,key))==2
     with pytest.raises(PermissionError):notebook.entries(None,key)
+
+
+def test_line_completion_is_deferred_until_quiz_and_still_checks_access(room):
+    teacher,student,pupil,_,outsider=room
+    identifier=materials.save_material(teacher,student,'Linha','line',dict(pgn='1. e4 e5 *',side='white'))
+    with pytest.raises(ValueError):materials.finish_line_training(pupil,identifier)
+    result=materials.check_training(pupil,identifier,0,'e2e4',chess.Board().fen(),finalize=False)
+    assert result['completed']
+    assert materials.list_materials(pupil)[0]['progress']['completed']==0
+    with pytest.raises(PermissionError):materials.finish_line_training(outsider,identifier)
+    materials.finish_line_training(pupil,identifier)
+    assert materials.list_materials(pupil)[0]['progress']['completed']==1

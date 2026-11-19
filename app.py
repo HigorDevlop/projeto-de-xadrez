@@ -21,7 +21,7 @@ from classroom_ui import access as classroom_access, professor_workspace
 
 from chess_review import (BookIndex, CATEGORIES, decode_text, canonical_category, canonical_explanation,
                           export_review, read_games)
-from chesscom import fetch_recent_games, fetch_dashboard_games, normalize_username, fetch_rating
+from chesscom import fetch_recent_games, fetch_dashboard_games, normalize_username, fetch_rating, fetch_latest_finished_games
 from game_play import play_move
 from interactive_board import interactive_board
 from profile_avatar import profile_avatar
@@ -32,18 +32,13 @@ from quick_question import answer_question
 from pgn_clipboard import pgn_clipboard
 from presentation import apply_theme, classification_legend, brand, page_heading
 from design_tokens import palette
-import analysis_editor
-from analysis_summary import render_analysis_summary
+from analysis_summary import render_analysis_summary, analysis_sidebar_html
 from analysis_progress import AnalysisProgress, render_progress
 from tactics import solve_move
 from page_chrome import page_chrome
 from tutor import load_passages, tutor_mood
 from book_reader import merge_books
-from study_workspace import render_study, study_board as current_study_board
-from preparation_workspace import render_preparation, pause_preparation
 from preparation_state import load_plan, today as local_today
-from performance import render_comparative_chart
-from performance_dashboard import render_dashboard, save_game_quality
 from recent_games import recent_games, recent_eight, history_revision, game_id
 
 ROOT = Path(__file__).resolve().parent
@@ -238,7 +233,8 @@ def workers():
     return ThreadPoolExecutor(max_workers=2, thread_name_prefix="chess-review")
 
 
-cached_history = st.cache_data(ttl=900, max_entries=32, show_spinner=False)(fetch_recent_games)
+cached_history = st.cache_data(ttl=30, max_entries=32, show_spinner=False)(fetch_recent_games)
+cached_live_history = st.cache_data(ttl=20, max_entries=32, show_spinner=False)(fetch_latest_finished_games)
 cached_dashboard_history = st.cache_data(ttl=900, max_entries=16, show_spinner=False)(fetch_dashboard_games)
 
 
@@ -276,6 +272,13 @@ def reset_game(game, accuracies=None):
     state.official_accuracies = {side: float(value) for side, value in (accuracies or {}).items()
                                if side in {"white", "black"} and isinstance(value, (int, float))
                                and not isinstance(value, bool) and 0 <= value <= 100}
+
+    state.pop('analysis_saved_at',None)
+    state.pop('quality_save_error',None)
+    if state.get('classroom_token'):
+        from analysis_archive import load,restore
+        try:restore(state,load(state.classroom_token,pgn=state.game))
+        except (OSError,sqlite3.Error,PermissionError):state.analysis_archive_error='Não foi possível consultar as análises salvas.'
 
 
 def go_tab(name):
@@ -383,6 +386,11 @@ def free_board():
 
 def render_home():
     state = st.session_state
+    from classroom_ui import training_token
+    from evolution_map_ui import render as render_evolution_map
+    render_evolution_map(training_token())
+    from repertoire_comparison_ui import render as render_repertoire_comparison
+    render_repertoire_comparison(training_token())
     st.subheader('Últimas 8 partidas', width='stretch')
     if not state.archive_user:
         st.info('Entre com seu usuário do Chess.com no menu lateral para carregar suas últimas partidas.')
@@ -395,6 +403,7 @@ def render_home():
 
 
 def render_performance(history, username, dark=False, *, context='painel', compact=False):
+    from performance import render_comparative_chart
     render_comparative_chart(history, username, dark, context=context, compact=compact,
                              plan=state.get('prep_plan'))
 
@@ -419,9 +428,14 @@ def queue_job(slot, key, function, *args):
     st.session_state.jobs[slot] = (key, workers().submit(function, *args, **kwargs))
 
 
-@st.fragment(run_every=0.5)
+@st.fragment(run_every=2)
 def poll_jobs():
     state = st.session_state
+    if (state.archive_user and state.history_loaded_user==state.archive_user
+            and state.active_tab in ('Análise','Partida','Desempenho') and 'history_live' not in state.jobs
+            and perf_counter()>=state.get('history_live_next',0)):
+        state.history_live_next=perf_counter()+30
+        queue_job('history_live',state.archive_user,cached_live_history,state.archive_user)
     changed = False
     for slot, (key, future) in list(state.jobs.items()):
         # The tactics fragment consumes its own queue without rerunning this page.
@@ -430,7 +444,6 @@ def poll_jobs():
         if not future.done():
             continue
         del state.jobs[slot]
-        changed = True
         try:
             result = future.result()
             if slot == "full" and key == analysis_key():
@@ -439,25 +452,56 @@ def poll_jobs():
                 state.book_references = result["references"]
                 state.position_evaluation = result.get('position')
                 state.loaded_analysis = key
+                changed = changed or state.active_tab in ('Análise','Partida','Anotações','Estudo com livros')
                 try:
+                    from performance_dashboard import save_game_quality
                     save_game_quality(current_game(state.game), state.reviews)
-                except OSError:
-                    state.quality_save_error = 'A análise está pronta, mas não foi possível salvar o resumo de desempenho.'
+                    if state.get('classroom_token') and state.analysis_requested:
+                        from analysis_archive import save
+                        save(state.classroom_token,state.game,result,ply=state.ply,
+                             settings=dict(engine=state.review_engine,quality=state.quality),accuracies=state.official_accuracies)
+                        state.analysis_saved_at=__import__('time').time()
+                except (OSError,sqlite3.Error,ValueError,PermissionError):
+                    state.quality_save_error = 'A análise está pronta nesta sessão, mas não foi possível salvar. Confira o armazenamento antes de fechar.'
             elif slot == "rating" and key == state.archive_user:
+                changed = changed or (state.player_rating,state.rating_label)!=result
                 state.player_rating, state.rating_label = result
                 state.rating_user = key
+            elif slot == 'history_live' and key == state.archive_user:
+                from live_game_history import merge
+                merged,index=merge(state.history_games,result,state.get('history_choice'))
+                if merged!=state.history_games:
+                    state.history_games=merged
+                    state.history_choice=index
+                    changed=changed or state.active_tab in ('Partida','Análise','Desempenho')
+                if state.get('dashboard_history_key') and state.dashboard_history_key[0]==state.archive_user:
+                    dashboard_games,_=merge(state.dashboard_history_games,result,limit=None)
+                    if dashboard_games!=state.dashboard_history_games:
+                        state.dashboard_history_games=dashboard_games
+                        changed=changed or state.active_tab=='Desempenho'
+                state.history_live_next=perf_counter()+30
+                state.analysis_auto_quality_next=0
+                state.pop('history_live_error',None)
             elif slot == 'history' and key == state.archive_user:
+                changed=changed or (state.history_loaded_user!=key or state.history_games!=result) and state.active_tab in ('Partida','Análise','Desempenho')
                 state.history_games = result
                 state.history_loaded_user = key
                 state.pop('history_error', None)
+                state.analysis_auto_quality_next=0
             elif slot == 'accuracy':
+                changed=changed or state.active_tab=='Partida' and state.recent_accuracies.get(key[0])!=result
                 state.recent_accuracies[key[0]] = result
             elif slot == 'dashboard_history' and key[0] == state.archive_user:
+                changed=changed or state.active_tab=='Desempenho' and (state.dashboard_history_key!=key or state.dashboard_history_games!=result)
                 state.dashboard_history_games = result
                 state.dashboard_history_key = key
             state.job_errors.pop((slot, key), None)
         except Exception as error:
+            changed=changed or state.job_errors.get((slot,key))!=str(error) and (slot=='full' and key==analysis_key() or slot in ('history','dashboard_history') and state.active_tab in ('Partida','Desempenho','Análise'))
             state.job_errors[(slot, key)] = str(error)
+            if slot=='history_live':
+                state.history_live_error=str(error)
+                state.history_live_next=perf_counter()+120
             if slot == "rating" and key == state.archive_user:
                 state.rating_user = key
             elif slot == 'history' and key == state.archive_user:
@@ -465,6 +509,12 @@ def poll_jobs():
                 state.history_error = str(error)
             while len(state.job_errors) > 32:
                 state.job_errors.pop(next(iter(state.job_errors)))
+    if (state.archive_user and state.history_loaded_user==state.archive_user
+            and perf_counter()>=state.get('analysis_auto_quality_next',0)):
+        from dashboard_auto_analysis import ensure
+        source=state.dashboard_history_games if (state.get('dashboard_history_key') or (None,))[0]==state.archive_user else state.history_games
+        ensure(source,state.archive_user,30 if state.get('dashboard_period')=='Últimos 30 dias' else 7)
+        state.analysis_auto_quality_next=perf_counter()+10
     if changed and state.active_tab != 'Tático':
         st.rerun()
 
@@ -535,7 +585,6 @@ def render_moves(prefix):
                                       on_click=jump_to_ply, args=(ply,), width="stretch", help=col_help)
                     else:
                         col.write("—")
-        classification_legend()
     with pgn_tab:
         pgn_clipboard(export_review(game, list(state.reviews.values())) if state.reviews else str(game),
                       key=f"{prefix}_copy", dark=state.theme_mode == "Escuro")
@@ -585,9 +634,13 @@ def render_history():
     st.selectbox("Escolher partida no histórico", range(len(state.history_games)), index=None,
                  format_func=label, placeholder="Escolha uma partida" if state.history_games else "Entre com seu usuário do Chess.com",
                  key="history_choice", on_change=select_history_game, disabled=not state.history_games)
+    if state.archive_user:
+        st.caption('Novas partidas aparecem automaticamente quando disponibilizadas pelo Chess.com.')
+        if error:=state.get('history_live_error'):st.caption('Atualização temporariamente indisponível. Suas partidas salvas continuam disponíveis. '+error)
 
 
 def render_main_board():
+    import analysis_editor
     state = st.session_state
     game = current_game(state.game)
     moves = list(game.mainline_moves())
@@ -623,6 +676,7 @@ def render_main_board():
                       instant_moves=state.active_tab == 'Análise',
                       analysis_notes=state.active_tab == 'Análise' and not editing,
                       notebook=notebook,on_note=board_note_changed,
+                      analysis_summary=analysis_sidebar_html(state.reviews,state.official_accuracies,dict(game.headers)) if ready and state.reviews and state.active_tab=='Análise' else None,
                       evaluation_bar=state.active_tab == 'Análise',
                       evaluation_reviews=state.reviews if ready else {},
                       position_evaluation=state.get('position_evaluation') if ready and not moves else None,
@@ -630,6 +684,8 @@ def render_main_board():
 
 
 def render_analysis_sources():
+    from analysis_archive import render_saved
+    render_saved(reset_game)
     state = st.session_state
     with st.expander("Partida, histórico e importação", icon=":material/folder_open:"):
         with st.container(border=True, key='analysis_source'):
@@ -671,6 +727,7 @@ def render_analysis_sources():
 
 
 def begin_analysis_edit():
+    import analysis_editor
     state = st.session_state
     game = current_game(state.game)
     board = game.board()
@@ -681,6 +738,13 @@ def begin_analysis_edit():
 
 @st.fragment
 def render_board():
+    # Replace the complete fragment tree when the analysis status changes.
+    with st.empty().container():
+        _render_board_content()
+
+
+def _render_board_content():
+    import analysis_editor
     state = st.session_state
     render_analysis_progress()
     editing = state.get('analysis_editing', False) and state.active_tab == 'Análise'
@@ -709,6 +773,18 @@ def render_board():
             if state.active_tab != 'Análise':
                 with st.popover('Anotações', icon=':material/description:'):
                     render_moves('panel')
+    if state.get('analysis_saved_at') and ready and not editing:
+        st.caption('Análise salva nesta conta · pode fechar e retomar sem executar o motor novamente.')
+    if state.get('quality_save_error'):st.warning(state.quality_save_error)
+    if not editing and state.active_tab == 'Análise':
+        from move_evidence import render as render_move_evidence
+        render_move_evidence(board, state.reviews.get(state.ply) if ready else None,
+                             state.book_references.get(state.ply, ()) if ready else (),
+                             position=state.get('position_evaluation') if ready and state.ply == 0 else None,
+                             legacy_text=state.explanations.get(state.ply, '') if ready else '')
+    if state.active_tab == 'Análise' and not editing:
+        from analysis_training_ui import render as render_analysis_training
+        render_analysis_training(state.game, ready=ready)
     if editing:
         analysis_editor.controls(reset_game)
     if state.analysis_options_open and not editing:
@@ -724,7 +800,7 @@ def render_board():
     if error := state.pop('move_error', None):
         st.error(error)
     if not editing and state.analysis_requested:
-        if ready and engine_choices.get(state.review_engine):
+        if ready:
             position = state.get('position_evaluation')
             if not state.reviews and position:
                 score = (f"Posição encerrada · {position['result']}" if position.get('result') else
@@ -734,7 +810,8 @@ def render_board():
                 if position['line']:
                     st.caption('Continuação calculada: ' + position['line'])
             else:
-                render_analysis_summary(state.reviews, state.official_accuracies, dark=True)
+                if state.active_tab != 'Análise':
+                    render_analysis_summary(state.reviews, state.official_accuracies, dark=True)
         elif not engine_choices.get(state.review_engine):
             st.info(f'{state.review_engine} não encontrado. Escolha um motor instalado em Analisar Partida.')
         elif error := state.job_errors.get(('full', analysis_key())):
@@ -744,17 +821,11 @@ def render_board():
             st.caption(f'Analisando com {state.review_engine}… Você pode continuar navegando no tabuleiro.')
     elif not editing:
         st.caption('Explore os lances livremente. Peça uma análise quando quiser revisar a partida.')
-    if state.active_tab == 'Análise' and not editing:
-        with st.container(key='analysis_secondary'):
-            render_analysis_sources()
-    elif state.active_tab != 'Análise':
+    if state.active_tab != 'Análise':
         render_history()
-    if state.show_quality and not editing:
-        with st.container(key='analysis_legend'):
-            classification_legend()
 
 
-@st.fragment(run_every=.3)
+@st.fragment(run_every=.3 if st.session_state.get('analysis_progress') and st.session_state.get('analysis_requested') and not st.session_state.get('loaded_analysis') else None)
 def render_analysis_progress():
     state = st.session_state
     progress = state.get('analysis_progress')
@@ -778,6 +849,7 @@ def render_question_box():
         for move in state.puzzle.solution[:state.puzzle_progress]:
             board.push_uci(move)
     elif state.active_tab == "Estudo com livros":
+        from study_workspace import study_board as current_study_board
         board = current_study_board()
     else:
         board = current_game(state.game).board()
@@ -813,6 +885,11 @@ def reset_puzzle():
 
 def puzzle_changed(event=None):
     state = st.session_state
+    from tactics_session import expired
+    if expired(state):
+        state.puzzle_revision += 1
+        st.rerun('tactics_workspace')
+        return
     event = event if isinstance(event,dict) else state.puzzle_board.move
     if not isinstance(event, dict) or not state.puzzle or event.get("revision") != state.puzzle_revision:
         return
@@ -855,6 +932,8 @@ def puzzle_changed(event=None):
             state.puzzle_failed_ids.add(state.puzzle.id)
         if state.puzzle_progress == len(state.puzzle.solution):
             state.tactic_last_seconds=max(0,perf_counter()-state.get('tactic_clock_started',perf_counter()))
+            from tactics_difficulty import completed
+            completed(state,state.puzzle.id,state.puzzle.id not in state.puzzle_failed_ids)
         from tactics_progress import owner_for,record
         from uuid import uuid4
         if not state.get('tactic_session_id'): state.tactic_session_id=uuid4().hex
@@ -893,9 +972,11 @@ def advance_puzzle():
 
 def choose_theme(theme, preserve_range=True):
     state = st.session_state
+    state.tactic_deadline=None
     from uuid import uuid4
     state.tactic_session_id=uuid4().hex
     state.tactic_attempts=state.tactic_hits=state.tactic_solved=state.tactic_streak=0
+    state.tactic_difficulty_hits=0;state.tactic_difficulty_seen=set()
     state.puzzle_failed_ids=set();state.puzzle_rewarded_ids=set()
     state.tactic_theme = theme
     if theme is not None:
@@ -924,6 +1005,9 @@ if '_initial_appearance' not in st.session_state:
     st.session_state._initial_appearance = load_appearance()
     st.session_state._initial_background = load_saved_background(st.session_state._initial_appearance)
 appearance = st.session_state._initial_appearance
+from board_settings import normalize as normalize_board_settings
+for preference_key, preference_value in normalize_board_settings(appearance).items():
+    st.session_state.setdefault(preference_key, preference_value)
 saved_background = st.session_state._initial_background
 saved_theme = appearance.get('theme') if appearance.get('theme') in {'Claro', 'Escuro'} else 'Claro'
 saved_background_mode = appearance.get('background_mode')
@@ -982,6 +1066,16 @@ from desktop_exit import render_exit_button
 render_exit_button()
 from auth_ui import require_login, admin_workspace
 classroom_user=require_login()
+if state.get('analysis_archive_owner')!=classroom_user['id']:
+    state.analysis_archive_owner=classroom_user['id']
+    from analysis_archive import load
+    try:
+        saved_analysis=load(state.classroom_token)
+        if saved_analysis:
+            reset_game(current_game(saved_analysis['pgn']))
+            state.ply=saved_analysis['ply']
+    except (OSError,sqlite3.Error,PermissionError):
+        state.analysis_archive_error='Não foi possível consultar as análises salvas.' 
 if requested_notebook := state.pop('analysis_notebook_load',None):
     from analysis_notebook import saved_games
     saved_notebook=saved_games(state.classroom_token,requested_notebook)
@@ -997,12 +1091,9 @@ if requested_material := state.pop('prep_analysis_material',None):
         reset_game(current_game(material['payload']['pgn']))
     except (ValueError,PermissionError) as error:
         st.error(str(error))
-from book_library import hydrate_library
-try:
-    local_book_library = hydrate_library(state, classroom_user['id'])
-except (OSError, ValueError) as error:
-    st.error(f'Não foi possível abrir a biblioteca local: {error}')
-    st.stop()
+from book_library import BookLibrary, hydrate_library
+# Opening the app must not read up to 500 MB of books before showing its workspace.
+local_book_library = BookLibrary()
 if state.get("theme_save_error"):
     st.caption(state.pop("theme_save_error"))
 game = current_game(state.game)
@@ -1102,6 +1193,8 @@ with st.sidebar:
                                                      state.get('library_book_plies', 40), step=2)
                 st.caption('Livros e fontes para estudo.')
         st.markdown('**Tabuleiro e treino**')
+        from board_settings import render as render_board_settings
+        render_board_settings(appearance, save_appearance)
         st.toggle('Mostrar qualidade do lance', key='show_quality')
         st.toggle('Pretas na parte inferior', key='flip')
         st.toggle('Mostrar mesa sob o tabuleiro', key='show_table', on_change=table_preference_changed)
@@ -1113,28 +1206,54 @@ with st.sidebar:
     if state.archive_user and state.rating_user != state.archive_user:
         queue_job('rating', state.archive_user, fetch_rating, state.archive_user)
 book_plies = state.get('library_book_plies', 40)
-files = merge_books(state.get('library_uploads', ()), state.study_files)
-library_digest = sha256()
-for name, data in files:
-    library_digest.update(name.encode())
-    library_digest.update(sha256(data).digest())
-library_id = library_digest.hexdigest()
+files = state.get('_analysis_files', ())
+library_id = state.get('_analysis_library_id', '')
+
+
+def prepare_book_sources():
+    global files, library_id
+    try:
+        hydrate_library(state, classroom_user['id'])
+    except (OSError, ValueError) as error:
+        st.error(f'Não foi possível abrir a biblioteca local: {error}')
+        st.stop()
+    sources = (state.get('library_uploads', ()), state.study_files)
+    # Keep the byte objects alive with the cache: ids cannot be reused underneath it.
+    cached = state.get('_book_sources_cache')
+    if cached is None or cached[0][0] is not sources[0] or cached[0][1] is not sources[1]:
+        files = merge_books(*sources)
+        digest = sha256()
+        for name, data in files:
+            digest.update(name.encode());digest.update(sha256(data).digest())
+        library_id = digest.hexdigest()
+        state._book_sources_cache = (sources, files, library_id)
+        state._analysis_files, state._analysis_library_id = files, library_id
+    else:
+        _, files, library_id = cached
+
+
+if (state.get('requested_page') or state.active_tab) in {'Análise', 'Estudo com livros'}:
+    prepare_book_sources()
 stockfish_path = find_engine()
 engine_choices = review_engines(stockfish_path)
 if state.review_engine not in engine_choices:
     state.review_engine = 'Stockfish'
-signature = analysis_settings_signature()
-if state.analysis_signature != signature:
-    cancel_analysis()
-    state.reviews = {}
-    state.analysis_signature = signature
-    state.explanations = {}
-    state.book_references = {}
-    state.loaded_analysis = None
-    # Changing books, rating or engine does not authorize another engine run.
-    # start_analysis sets quality before this signature is recomputed.
-    if not state.get('analysis_request_pending'):
-        state.analysis_requested = False
+def refresh_analysis_settings():
+    if state.get('analysis_saved_at') and state.loaded_analysis == analysis_key():return
+    signature = analysis_settings_signature()
+    if state.analysis_signature != signature:
+        cancel_analysis()
+        state.reviews = {}
+        state.analysis_signature = signature
+        state.explanations = {}
+        state.book_references = {}
+        state.loaded_analysis = None
+        # Changing books, rating or engine does not authorize another engine run.
+        if not state.get('analysis_request_pending'):
+            state.analysis_requested = False
+
+
+refresh_analysis_settings()
 state.pop('analysis_request_pending', None)
 game = current_game(state.game)
 
@@ -1154,6 +1273,8 @@ def render_workspace(name):
         except PermissionError:pass
     if name not in allowed_pages(actor['role'],in_classroom,bool(recorded_room)):
         st.error('Esta área não está disponível para seu perfil.');return
+    from evolution_map import apply_training_request
+    apply_training_request(effective_token, state, name, choose_theme)
     if in_classroom:
         import classroom_sessions
         if name in ('Preparo','Aberturas','Tático'):
@@ -1187,6 +1308,7 @@ def render_workspace(name):
     if name == 'Partida':
         render_home()
     elif name == 'Desempenho':
+        from performance_dashboard import render_dashboard, save_game_quality
         day = local_today()
         dashboard_key = (state.archive_user, day.isoformat())
         complete = state.dashboard_history_key == dashboard_key
@@ -1208,13 +1330,27 @@ def render_workspace(name):
         if state.get('quality_save_error'):
             st.caption(state.quality_save_error)
     elif name == "Análise":
+        prepare_book_sources()
+        refresh_analysis_settings()
         render_board()
+        if not state.get('analysis_editing',False):
+            with st.container(key='analysis_secondary'):
+                render_analysis_sources()
+        if state.show_quality and not state.get("analysis_editing",False):
+            with st.container(key="analysis_legend"):
+                classification_legend()
     elif name == "Anotações":
         render_moves("notes")
         render_board()
+        if state.show_quality:
+            classification_legend()
     elif name == "Estudo com livros":
+        prepare_book_sources()
+        refresh_analysis_settings()
+        from study_workspace import render_study
         render_study(files, dark_theme, state.show_table)
     elif name == "Preparo":
+        from preparation_workspace import render_preparation
         render_preparation(state.history_games, state.archive_user, stockfish_path, dark_theme, state.show_table)
     elif name == "Aberturas":
         from opening_practice import render_opening_practice
@@ -1259,6 +1395,8 @@ with sidebar_navigation:
             st.page_link(pages[name], label='Modo Preparo' if name=='Preparo' else 'Táticos' if name=='Tático' else 'Vídeos gravados' if name=='Vídeos' else name, icon=f":material/{page_icons[name]}:")
     if state.archive_user and st.button('Atualizar partidas', icon=':material/refresh:', width='stretch'):
         cached_history.clear()
+        cached_live_history.clear()
+        state.history_live_next=0
         cached_dashboard_history.clear()
         state.dashboard_history_key = None
         state.job_errors = {key: value for key, value in state.job_errors.items() if key[0] != 'dashboard_history'}
@@ -1274,6 +1412,13 @@ if not state.get('navigation_migrated'):
     state.navigation_migrated = True
     if state.main_view != 'Partida' and not state.get('requested_page'):
         state.requested_page = state.main_view
+if diagnostic:=state.pop('dashboard_review_request',None):
+    try:
+        reviewed=read_games(diagnostic['pgn'])[0]
+        reset_game(reviewed)
+        state.ply=max(0,min(len(list(reviewed.mainline_moves())),int(diagnostic['ply'])))
+    except (ValueError,KeyError,IndexError,TypeError) as error:
+        state.move_error='Não foi possível abrir o lance selecionado: '+str(error)
 requested = state.pop('requested_page', None)
 if requested in pages and requested != selected_page.title:
     st.switch_page(pages[requested])
@@ -1287,7 +1432,8 @@ if selected_page.title != state.active_tab:
         state.tab_history.append(state.active_tab)
 state.active_tab = state.main_view = selected_page.title
 state.analysis_workspace_open = selected_page.title == 'Análise'
-if selected_page.title != 'Preparo':
+if selected_page.title != 'Preparo' and (state.get('prep_plan') or {}).get('active'):
+    from preparation_workspace import pause_preparation
     pause_preparation()
 if 'accuracy' in state.jobs:
     if state.accuracy_cancel:
@@ -1297,6 +1443,9 @@ if state.tab_history:
     with st.sidebar:
         st.button("Voltar", icon=":material/arrow_back:", on_click=go_back, key="navigation_back", width="stretch", type="tertiary")
 page_chrome()
+if selected_page.title in ('Partida','Análise','Preparo'):
+    from classroom_ui import join_room_panel
+    join_room_panel()
 selected_page.run()
 render_question_box()
 

@@ -34,9 +34,12 @@ def _saved_server():
         port,pid=int(saved['port']),int(saved['pid'])
         if not 1024<=port<=65535 or pid<=0:return None
         if os.name=='nt':
-            command=subprocess.run(['powershell','-NoProfile','-Command',
+            shell=Path(os.environ.get('SystemRoot',r'C:\Windows'))/'System32/WindowsPowerShell/v1.0/powershell.exe'
+            command=subprocess.run([str(shell),'-NoProfile','-NonInteractive','-Command',
+                "[Console]::OutputEncoding=[System.Text.UTF8Encoding]::new($false); "
                 f"(Get-CimInstance Win32_Process -Filter 'ProcessId = {pid}').CommandLine"],
-                capture_output=True,text=True,timeout=5,creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0)).stdout
+                capture_output=True,text=True,encoding='utf8',errors='replace',timeout=8,
+                creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0)).stdout
         else:
             command=Path(f'/proc/{pid}/cmdline').read_text().replace('\0',' ')
         if str(ROOT/'app.py').casefold() not in command.casefold() or f'--server.port={port}' not in command:
@@ -100,6 +103,7 @@ def start_server():
         process = subprocess.Popen(
             [sys.executable, '-m', 'streamlit', 'run', str(ROOT / 'app.py'),
              '--server.address=127.0.0.1', f'--server.port={port}',
+             '--server.fileWatcherType=none',
              '--server.headless=true', '--browser.gatherUsageStats=false'],
             cwd=ROOT, stdout=log, stderr=log,
             creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0),
@@ -140,10 +144,15 @@ def main():
                 startup = subprocess.STARTUPINFO()
                 startup.dwFlags |= subprocess.STARTF_USESHOWWINDOW
                 startup.wShowWindow = 3  # SW_SHOWMAXIMIZED
-            subprocess.Popen([str(browser), '--user-data-dir=' + str(profile.resolve()),
+            window_process = subprocess.Popen([str(browser), '--user-data-dir=' + str(profile.resolve()),
                               '--no-first-run', '--no-default-browser-check',
                               '--new-window', '--app=' + url, '--start-fullscreen'],
                              startupinfo=startup)
+            if os.name == 'nt' and isinstance(getattr(window_process, 'pid', None), int):
+                from threading import Thread
+                from desktop_identity import apply_to_browser
+                Thread(target=apply_to_browser, args=(profile,url,ROOT,sys.executable),
+                       name='coach-window-identity', daemon=False).start()
         else:
             webbrowser.open(url)
     except Exception as error:

@@ -54,16 +54,40 @@ def render_unlocks(plan, titles):
     </style><section class="achievement-unlocks" role="status" aria-label="Conquistas desbloqueadas">'''+''.join(cards)+'</section>')
 
 
-def render_achievements(plan):
+def render_achievements(plan, *, compact=False):
     items=collection(plan)
     earned=sum(item['earned'] for item in items)
-    with st.expander(f'Conquistas · {earned}/{len(items)}',icon=':material/emoji_events:'):
-        st.caption('Conquistadas pelo seu progresso e salvas neste computador.')
-        columns=st.columns(2)
-        for index,item in enumerate(items):
-            with columns[index%2],st.container(border=True):
-                if item['earned']:st.html(medal_image(item['id']))
-                st.markdown(('🏆 ' if item['earned'] else '◇ ')+item['title'])
-                st.caption(item['description'])
-                st.progress(item['progress']/item['target'])
-                st.caption('Conquistada · '+item['day'] if item['earned'] else f"{item['progress']}/{item['target']}")
+    if compact:
+        st.html("""<style>
+        .st-key-opening_achievements_button button{width:44px;height:44px;border-radius:13px!important;color:#e8c780!important;background:linear-gradient(145deg,#3b3425,#242219)!important;border:1px solid #9e814a66!important;box-shadow:inset 0 1px #ffffff15,0 4px 10px #0004}
+        .st-key-opening_achievements_button button:hover{border-color:#e8c780!important;transform:translateY(-2px)}
+        .st-key-opening_achievements_button button p{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+        @media(prefers-reduced-motion:reduce){.st-key-opening_achievements_button button:hover{transform:none}}
+        </style>""")
+        @st.dialog('Conquistas desta abertura',width='large')
+        def show():
+            st.caption(f'{earned} de {len(items)} conquistas desbloqueadas')
+            render_collection(items)
+        if st.button('Conquistas',icon=':material/emoji_events:',key='opening_achievements_button',type='tertiary'):
+            show()
+    else:
+        with st.expander(f'Conquistas · {earned}/{len(items)}',icon=':material/emoji_events:'):
+            render_collection(items)
+
+
+def render_collection(items):
+    st.caption('Conquistas desta abertura. Seu progresso nas outras aberturas fica guardado separadamente.')
+    st.html('''<style>
+    [class*=st-key-opening_achievement_]{padding:16px!important;border:1px solid #9aa98030!important;border-radius:14px!important;background:linear-gradient(145deg,#202a23,#141c18)!important;box-shadow:inset 0 1px #fff08,0 6px 16px #0003}
+    [class*=st-key-opening_achievement_] .achievement-medal{width:42px;height:50px}
+    [class*=st-key-opening_achievement_] [data-testid=stProgressBar] progress{height:4px}
+    .achievement-locked{opacity:.3;filter:grayscale(.8)}
+    </style>''')
+    columns=st.columns(3)
+    for index,item in enumerate(items):
+        with columns[index%3],st.container(key='opening_achievement_'+item['id']):
+            st.html('<div class="'+('achievement-earned' if item['earned'] else 'achievement-locked')+'">'+medal_image(item['id'])+'</div>')
+            st.markdown('**'+item['title']+'**')
+            st.caption(item['description'])
+            st.progress(item['progress']/item['target'])
+            st.caption('Conquistada · '+item['day'] if item['earned'] else f"{item['progress']}/{item['target']}")

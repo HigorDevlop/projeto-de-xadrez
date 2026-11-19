@@ -15,8 +15,8 @@ from chess_review import BookIndex, MoveReview, classify, sacrifice_in_line
 
 
 _ENGINE_LOCK = Lock()  # One engine process across sessions, to bound CPU/memory.
-QUALITY = {'Rápida': (12, .08), 'Equilibrada': (18, .25), 'Profunda': (22, .7)}
-ANALYSIS_VERSION = 4
+QUALITY = {'Rápida': (14, .2), 'Equilibrada': (20, 1.0), 'Profunda': (24, 3.0)}
+ANALYSIS_VERSION = 6
 
 
 def find_engine():
@@ -157,6 +157,7 @@ def analyse_with_books(game, engine_path, rating=1500, book=None, study=None,
                 white = info['score'].white()
                 position = {'engine_name': engine_name, 'cp': white.score(), 'mate': white.mate(),
                             'line': board.variation_san(pv[:6]) if pv else ''}
+            baseline = engine.analyse(board, limit) if moves else None
             for ply, move in enumerate(moves, 1):
                 check_cancelled(cancel)
                 report(ply - 1, total, f'Avaliando o lance {ply} de {total}', engine_name)
@@ -182,8 +183,22 @@ def analyse_with_books(game, engine_path, rating=1500, book=None, study=None,
                                     white.score(mate_score=100000), white.mate(), board.san(best_move),
                                     board.variation_san(pv[:6]), sources, '',
                                     max(0, best_expected - played_expected), best_expected, played_expected,
-                                    engine_name=engine_name)
+                                    engine_name=engine_name, best_line=board.variation_san(best['pv'][:6]))
+                before = review_chances(baseline, color)
                 board.push(move)
+                check_cancelled(cancel)
+                if board.is_game_over():
+                    outcome = board.outcome()
+                    terminal = chess.engine.Cp(0) if outcome.winner is None else chess.engine.MateGiven
+                    baseline = {'score': chess.engine.PovScore(terminal, outcome.winner if outcome.winner is not None else chess.WHITE)}
+                else:
+                    baseline = engine.analyse(board, limit)
+                review.accuracy_before = before
+                review.accuracy_after = review_chances(baseline, color)
+                white = baseline['score'].white()
+                review.white_cp = white.score(mate_score=100000)
+                review.white_mate = white.mate()
+                review.position_fen = board.fen()
                 explanation, refs = explain_from_books(board, study, review, references[ply])
                 review.explanation = explanation
                 reviews[ply], explanations[ply], references[ply] = review, explanation, refs
@@ -194,5 +209,10 @@ def analyse_with_books(game, engine_path, rating=1500, book=None, study=None,
         raise ValueError('Não foi possível executar o motor selecionado. Confira o executável e tente novamente.') from error
     finally:
         _ENGINE_LOCK.release()
+    if position is not None:
+        position['fen'] = game.board().fen()
+        from move_evidence import build, text
+        explanations[0] = text(build(game.board(), references=references[0],
+                                     has_books=bool(study.passages), position=position))
     return {'reviews': reviews, 'explanations': explanations, 'references': references,
             'engine_name': engine_name, 'position': position}

@@ -43,3 +43,29 @@ def test_offline_checkpoint_survives_reopen_and_failed_sync(browser_page):
         checkpoint:(await store.current()).checkpoint};store.close();return result;
     }""")
     assert result=={'beforeRetry':2,'unique':2,'pending':0,'checkpoint':{'pgn':'1. e4 e5 *','ply':2}}
+
+
+def test_ack_cannot_delete_a_newer_offline_action_and_transport_is_strict(browser_page):
+    page = browser_page
+    page.route('http://localhost/**', lambda route:route.fulfill(body='<html></html>',content_type='text/html'))
+    page.goto('http://localhost/')
+    source=(Path(__file__).resolve().parents[1]/'mobile/offline-store.js').read_text(encoding='utf8')
+    page.add_script_tag(type='module', content=source+';window.OfflineStore=OfflineStore;window.syncTransport=syncTransport;')
+    page.context.set_offline(True)
+    result = page.evaluate('''async () => {
+      const store=await OfflineStore.open('account');
+      await store.save({ply:1});
+      store.transport=async()=>{await store.save({ply:2});return {acknowledged:2};};
+      let rejected=false;try{await store.sync();}catch{rejected=true;}
+      const pending=await store.pending(), current=await store.current();store.close();
+      let invalid=0;
+      for(const url of ['http://example.com','https://user:secret@example.com','ftp://localhost']) {
+        try{syncTransport(url,()=>'', 'web','');}catch{invalid++;}
+      }
+      let options;
+      window.fetch=async(url,init)=>{options=init;return {ok:true,json:async()=>({acknowledged:1})};};
+      await syncTransport('https://example.com',()=> 'test-token','web','')({events:[]});
+      return {rejected,pending:pending.length,ply:current.checkpoint.ply,invalid,
+        redirect:options.redirect,credentials:options.credentials,cache:options.cache};
+    }''')
+    assert result == dict(rejected=True,pending=2,ply=2,invalid=3,redirect='error',credentials='omit',cache='no-store')

@@ -7,6 +7,7 @@ import streamlit as st
 
 from chess_review import CATEGORIES, player_accuracy, canonical_category
 from design_tokens import palette
+from quality_icons import icon_html
 
 
 SIDES = ('Brancas', 'Pretas')
@@ -76,7 +77,7 @@ def _summary_html(summary, official_accuracies=None, dark=False):
         rows.append(
             '<tr><th scope="row"><div class="quality-term">'
             f'<span class="quality-symbol" aria-hidden="true" style="background:{color};color:{ink}">'
-            f'{escape(category.symbol)}</span>'
+            f'{icon_html(category)}</span>'
             f'<span title="{escape(category.description, quote=True)}">{label}</span>'
             '</div></th>' + ''.join(cells) + '</tr>'
         )
@@ -138,3 +139,34 @@ def render_analysis_summary(reviews, official_accuracies=None, dark=False):
         else:
             st.caption('Nenhum lance analisado ainda.')
         st.html(_summary_html(summary, official_accuracies, dark))
+
+
+def analysis_sidebar_html(reviews, official_accuracies=None, headers=None):
+    """Side-by-side player comparison for the board's summary tab."""
+    summary=summarize_reviews(reviews)
+    official=official_accuracies if isinstance(official_accuracies,Mapping) else {}
+    headers=headers or {}
+    values=sorted(reviews.values() if isinstance(reviews,Mapping) else reviews,key=lambda r:r.ply)
+    samples=[r for r in values if r.white_cp is not None or r.white_mate is not None]
+    graph=''
+    if samples:
+        points=[]
+        for index,review in enumerate(samples):
+            cp=(1000 if review.white_mate>0 else -1000) if review.white_mate is not None else review.white_cp
+            y=50-45*math.tanh(cp/400)
+            points.append(f'{index*300/max(1,len(samples)-1):.2f},{y:.2f}')
+        graph=('<svg class="review-graph" viewBox="0 0 300 100" role="img" aria-label="Avaliação ao longo da partida, perspectiva das brancas">'
+               '<path d="M0 50H300" stroke="#596052" stroke-width="1"/>'
+               '<polyline points="'+ ' '.join(points)+'" fill="none" stroke="#efa338" stroke-width="2.5"/>'+
+               ('<circle cx="'+points[0].split(',')[0]+'" cy="'+points[0].split(',')[1]+'" r="3" fill="#efa338"/>' if len(points)==1 else '')+'</svg>')
+    players=[]
+    for side,key,piece in [('Brancas','White','♔'),('Pretas','Black','♚')]:
+        value,source=_accuracy(summary,official,side)
+        score=f'{value:.1f}%'.replace('.',',') if value is not None else '—'
+        players.append('<div class="review-player"><b>'+escape(headers.get(key,side))+'</b><div class="review-avatar">'+piece+'</div><strong>'+score+'</strong><small>'+escape(source)+'</small></div>')
+    rows=[]
+    for key,category in CATEGORIES.items():
+        counts=summary['counts'][key]
+        rows.append(f'<div class="review-count-row"><b>{counts["Brancas"]}</b><span><i style="--review-color:{escape(category.color,quote=True)}">{icon_html(category)}</i>{escape(category.label)}</span><b>{counts["Pretas"]}</b></div>')
+    return (graph+'<div class="review-players">'+''.join(players)+'</div><p class="review-score-title">Precisão · Brancas / Pretas</p>'+''.join(rows)+
+            '<p class="review-footnote">Análise local · '+escape(', '.join(summary['engines']))+'. Precisão local pelo método Lichess; pode diferir de outros aplicativos. Os valores oficiais importados são identificados como Chess.com.</p>')

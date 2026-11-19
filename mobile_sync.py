@@ -86,3 +86,14 @@ def devices_for_owner(token):
             FROM mobile_devices LEFT JOIN users ON users.id=mobile_devices.owner
             LEFT JOIN professors ON professors.id=mobile_devices.owner
             LEFT JOIN administrators ON administrators.id=mobile_devices.owner ORDER BY last_sync DESC''')]
+
+
+def checkpoints(token):
+    """Read only this account's device heads; never select a winning device."""
+    with rooms.database() as db:
+        owner = rooms._identity(db, token)['id']
+        _tables(db)
+        return [dict(device=row['device'], sequence=row['sequence'],
+                     checkpoint=json.loads(row['checkpoint']) if row['checkpoint'] else None)
+                for row in db.execute('SELECT device,sequence,checkpoint FROM mobile_devices WHERE owner=? ORDER BY device',
+                                      (owner,))]

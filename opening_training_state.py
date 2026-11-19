@@ -11,6 +11,13 @@ from opening_repetition import next_status, reinsert_index, ensure_quiz_states, 
 INTERVALS = (1, 3, 7, 14, 30)
 
 
+def schedule_review(previous, day, *, failed=False):
+    """Shared retention rule for local recall exercises and opening lines."""
+    level = 0 if failed else min(previous.get('level', -1) + 1, len(INTERVALS)-1)
+    return {'level': level,
+            'due': str(date.fromisoformat(str(day)) + timedelta(days=INTERVALS[level]))}
+
+
 def create_repertoire_plan(username, ids, start, end):
     courses = selected_courses(ids)
     plan = new_plan(username, start, end,
@@ -120,6 +127,8 @@ def request_hint(plan, session):
     """Reveal a move immediately; assisted recall must be repeated unaided."""
     if session['phase'] != 'answer' or not expected_move(plan, session) or session['hint']:
         return False
+    from opening_error_review import record
+    record(plan, session, current_line(plan, session), session['ply'], hint=True)
     _record_attempt(session, False)
     if session.get('practice_intent') != 'explore' and session.get('mode') != 'learn':
         session['requested_hint'] = True
@@ -169,6 +178,9 @@ def submit_move(plan, session, event, now, *, restart_on_error=True):
     if move not in board.legal_moves:
         return False
     correct = move.uci() == expected_move(plan, session)
+    if not correct:
+        from opening_error_review import record
+        record(plan, session, current_line(plan, session), session['ply'])
     if session.get('mode') == 'quiz':
         ensure_quiz_states(plan, session)
         key = quiz_state_key(session)
@@ -238,6 +250,8 @@ def _quiz_position(plan, session):
 
 
 def _start_quiz(plan, session):
+    from opening_error_review import recover_saved_errors
+    recover_saved_errors(plan, session)
     line = session.get('custom_line') or lines_for(plan).get(session['line_id']) or current_line(plan, session)
     session.pop('quiz_bank',None)
     session.pop('quiz_key',None)
@@ -282,6 +296,10 @@ def _start_quiz(plan, session):
         else:
             plies=plies[:limit]
         session.update(quiz_limit=limit,quiz_level=level,quiz_policy=2)
+    from opening_error_review import apply as apply_error_review
+    apply_error_review(plan, session, line, session.get('quiz_limit', len(plies)))
+    if session.get('quiz_error_based'):
+        plies = [int(key) for key in session['quiz_bank']]
     random.Random(f"{session['token']}:{line['id']}").shuffle(plies)
     states = {str(ply): 'pending' for ply in plies}
     session.update(mode='quiz', quiz_schema=2, quiz_states=states, quiz_queue=plies,
@@ -357,9 +375,7 @@ def _finish_line(plan, session, line):
     if key not in session[target]:
         session[target].append(key)
     previous = plan['retention'].get(key, {})
-    level = 0 if key in session['failed'] else min(previous.get('level', -1) + 1, len(INTERVALS)-1)
-    plan['retention'][key] = {'level': level,
-        'due': str(date.fromisoformat(session['day']) + timedelta(days=INTERVALS[level]))}
+    plan['retention'][key] = schedule_review(previous, session['day'], failed=key in session['failed'])
 
 
 def metrics(session):

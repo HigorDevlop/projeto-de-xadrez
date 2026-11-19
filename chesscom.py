@@ -1,10 +1,42 @@
 """Read-only Chess.com public archives. Requests are sequential and bounded."""
 import json
 import re
+from datetime import datetime, timezone
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 API = "https://api.chess.com/pub/player/"
+
+
+def fetch_latest_finished_games(username):
+    """Refresh recent months directly, without waiting for the archive index cache."""
+    now=datetime.now(timezone.utc)
+    previous=now.replace(day=1)
+    from datetime import timedelta
+    previous-=timedelta(days=1)
+    games=[]
+    for month in [now.strftime('%Y/%m'),previous.strftime('%Y/%m')]:
+        try:games.extend(fetch_games(username,month))
+        except ValueError as error:
+            # A player may not have played during either calendar month.
+            if 'não encontrado' not in str(error):raise
+    return [game for game in games if game.get('end_time')]
+
+
+def fetch_player_profile(username):
+    """Fetch public identity and current ratings sequentially from the PubAPI."""
+    username=normalize_username(username)
+    profile=get_json(f'{API}{username}')
+    stats=get_json(f'{API}{username}/stats')
+    ratings={}
+    for key,label in [('chess_rapid','Rápidas'),('chess_blitz','Blitz'),
+                      ('chess_bullet','Bullet'),('chess_daily','Diárias')]:
+        value=stats.get(key,{}).get('last',{}).get('rating')
+        ratings[label]=value if type(value) is int and 0<value<5000 else None
+    return {'username':username,'player_id':profile.get('player_id'),
+            'name':str(profile.get('name') or ''),'title':str(profile.get('title') or ''),
+            'joined':profile.get('joined'),'last_online':profile.get('last_online'),
+            'ratings':ratings}
 
 
 def fetch_rating(username):
@@ -82,7 +114,7 @@ def fetch_dashboard_games(username: str, first_month: str, last_month: str) -> l
     return sorted(games, key=lambda game: game.get('end_time', 0), reverse=True)
 
 
-def fetch_recent_games(username: str, limit: int = 100, max_months: int = 12) -> list[dict]:
+def fetch_recent_games(username: str, limit: int = 200, max_months: int | None = None) -> list[dict]:
     """Fill one recent-games picker across months, without parallel API requests."""
     user = normalize_username(username)
     games, seen = [], set()

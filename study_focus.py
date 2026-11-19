@@ -5,10 +5,12 @@ import streamlit as st
 _FOCUS = st.components.v2.component(
     'book_study_focus',
     html='<button type="button" class="start-study">Começar estudos <span>↗</span></button><small class="focus-hint" hidden>← → na área selecionada · Clique no livro para páginas ou no tabuleiro para lances · Esc para sair</small>',
-    css='''button{display:flex;align-items:center;gap:18px;border:1px solid #ff920e;border-radius:10px;
+    css="""button{display:flex;align-items:center;gap:18px;border:1px solid #ff920e;border-radius:10px;
     padding:11px 18px;background:#ff8500;color:#100c06;font:600 14px/1.4 system-ui;cursor:var(--club-cursor-link,pointer)}
     button:hover{background:#ffa024}button:focus-visible{outline:2px solid white;outline-offset:3px}
-    small{color:#b6b6b6;font:12px/1.5 system-ui} [hidden]{display:none}''',
+    small{color:#b6b6b6;font:12px/1.5 system-ui} [hidden]{display:none}
+/* Coach HUD */
+button{background:linear-gradient(130deg,#17d4e4,#0b809c)!important;border-color:#39ddea!important;border-radius:4px!important;color:#001421!important}""",
     js='''export default function({parentElement,data,setTriggerValue}) {
       const root=document.documentElement, button=parentElement.querySelector('button');
       const hint=parentElement.querySelector('small');

@@ -40,6 +40,9 @@ def test_home_does_not_wait_for_history_or_build_analysis_catalog(tmp_path, monk
     monkeypatch.setattr(chesscom, 'fetch_dashboard_games', lambda *args: records)
     monkeypatch.setattr(chesscom, 'fetch_rating', lambda user: (1500, 'Rápidas'))
     monkeypatch.setattr(BookIndex, 'add_opening_catalog', forbidden_catalog)
+    from book_library import BookLibrary
+    monkeypatch.setattr(BookLibrary,'load',lambda *args: (_ for _ in ()).throw(
+        AssertionError('The home must not read the book library')))
     # Register CCv2 components against this AppTest runtime.
     for module in ('interactive_board', 'recent_games', 'study_workspace', 'study_entrance',
                    'profile_avatar', 'page_chrome', 'cat_mascot', 'tactics_forge',
@@ -83,3 +86,41 @@ def test_home_does_not_wait_for_history_or_build_analysis_catalog(tmp_path, monk
     assert not at.exception
     assert at.session_state.active_tab == 'Desempenho'
     assert 'full' not in at.session_state.jobs
+
+
+def test_opening_catalogue_builds_in_background_while_ui_remains_usable(monkeypatch):
+    import types
+    bridge=types.ModuleType('startup_probe')
+    bridge.started,bridge.release=Event(),Event()
+    monkeypatch.setitem(sys.modules,'startup_probe',bridge)
+    sys.modules.pop('opening_home_ui',None)
+    at=AppTest.from_string('''
+import streamlit as st
+import startup_probe as probe
+import opening_home_ui as home
+if 'prepared' not in st.session_state:
+    original=home.reference_cards
+    def slow_cards():
+        probe.started.set()
+        if not probe.release.wait(15):raise TimeoutError('UI blocked on the catalogue')
+        return original()
+    home.reference_cards=slow_cards
+    home.reference_cards_job.clear()
+    st.session_state.prepared=True
+st.button('Outra ação',on_click=lambda:st.session_state.update(clicked=True))
+home.opening_home(None,lambda:None)
+''')
+    try:
+        at.run(timeout=5)
+        assert not at.exception
+        assert bridge.started.wait(1) and not bridge.release.is_set()
+        assert any('segundo plano' in item.value for item in at.caption)
+        at.button[0].click().run(timeout=5)
+        assert at.session_state.clicked and not at.exception
+        assert not bridge.release.is_set()
+    finally:
+        bridge.release.set()
+        home=sys.modules.get('opening_home_ui')
+        if home:
+            home.reference_cards_job().result(timeout=20)
+            home.reference_cards_job.clear()

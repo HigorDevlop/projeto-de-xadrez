@@ -131,14 +131,19 @@ render_achievements(json.loads(PAYLOAD))
     assert len(app.get('progress'))==len(ACHIEVEMENTS)
 
 
-def test_achievements_follow_the_owner_across_courses(tmp_path,monkeypatch):
+def test_achievements_are_separate_and_restore_when_returning_to_opening(tmp_path,monkeypatch):
     monkeypatch.setenv('ACERVO_PREPARATION_DIR',str(tmp_path))
     plan=select_course(None,'same-owner','italian')
     plan.update(achievements={'quiz_50':{'day':'2026-10-23','title':'Memória de mestre'}},achievement_progress={'quiz':50})
     other=select_course(plan,'same-owner','caro')
+    assert not any(item['earned'] for item in collection(other))
+    assert all(item['progress']==0 for item in collection(other))
     save_plan(other,namespace='openings')
     restored=load_plan('same-owner',namespace='openings')
-    assert next(item for item in collection(restored) if item['id']=='quiz_50')['earned']
+    assert not next(item for item in collection(restored) if item['id']=='quiz_50')['earned']
+    returned=select_course(restored,'same-owner','italian')
+    assert next(item for item in collection(returned) if item['id']=='quiz_50')['earned']
+    assert next(item for item in collection(restored,include_library=True) if item['id']=='quiz_50')['earned']
 
 
 def test_prepared_level_is_saved_and_started_by_the_background_monitor():

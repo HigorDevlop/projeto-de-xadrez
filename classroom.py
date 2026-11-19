@@ -315,11 +315,22 @@ def logout(token):
 def students(token):
     with database() as db:
         professor = _identity(db, token)
+        query='''SELECT students.*, users.name AS account_name,
+            CASE WHEN memberships.owner IS NULL THEN 0 ELSE 1 END AS linked,
+            COALESCE(NULLIF(students.chesscom,''),NULLIF(account_chesscom.username,''),'') AS resolved_chesscom,
+            COALESCE(professors.name,administrators.name) AS professor
+            FROM students LEFT JOIN memberships ON memberships.student=students.id
+            LEFT JOIN users ON users.id=memberships.owner
+            LEFT JOIN account_chesscom ON account_chesscom.owner=memberships.owner AND account_chesscom.role='user'
+            LEFT JOIN professors ON students.room=professors.id
+            LEFT JOIN administrators ON students.room=administrators.id'''
         if professor['role']=='admin':
-            return [dict(row) for row in db.execute('SELECT students.*,COALESCE(professors.name,administrators.name) AS professor FROM students LEFT JOIN professors ON room=professors.id LEFT JOIN administrators ON room=administrators.id WHERE professors.id IS NOT NULL OR administrators.id IS NOT NULL ORDER BY professor,slot')]
-        if professor['role']!='professor':
+            rows=db.execute(query+' WHERE professors.id IS NOT NULL OR administrators.id IS NOT NULL ORDER BY professor,slot').fetchall()
+        elif professor['role']=='professor':
+            rows=db.execute(query+' WHERE students.room=? ORDER BY slot',(professor['id'],)).fetchall()
+        else:
             raise PermissionError('Somente Professor ou Superadministrador.')
-        return [dict(row) for row in db.execute('SELECT * FROM students WHERE room=? ORDER BY slot', (professor['id'],))]
+        return [dict(dict(row),chesscom=row['resolved_chesscom']) for row in rows]
 
 
 def ensure_admin_room(token):

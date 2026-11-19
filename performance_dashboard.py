@@ -17,7 +17,8 @@ from preparation_state import LOCAL_ZONE, today
 
 
 RESULTS = {'wins': 'Vitórias', 'losses': 'Derrotas', 'draws': 'Empates'}
-RESULT_COLORS=['#4ab68b','#e0786a','#9aa7b2']
+RESULT_COLORS=['#11e5ff','#ff27c3','#fff500']
+QUALITY_COLORS=['#11e5ff','#69ff24','#acff2b','#fff500','#ffae48','#ff745f','#ff27c3']
 
 
 def quality_key(game):
@@ -33,9 +34,12 @@ def _quality_path(game_key):
 
 
 def save_game_quality(game, reviews):
+    reviews=list(reviews.values()) if isinstance(reviews,dict) else list(reviews)
     summary = summarize_reviews(reviews)
     if not summary['total']:
         return
+    from game_phase_diagnostics import from_reviews
+    from_reviews(game,reviews)
     path = _quality_path(quality_key(game))
     payload = json.dumps({'version': 1, 'counts': summary['counts'], 'totals': summary['totals']})
     if path.is_file() and path.read_text(encoding='utf-8') == payload:
@@ -51,23 +55,17 @@ def save_game_quality(game, reviews):
 
 
 def quality_counts(games):
+    from dashboard_auto_analysis import individual_counts,load
     counts = dict.fromkeys(CATEGORIES, 0)
     analyzed = 0
     for game in games:
-        try:
-            report = json.loads(_quality_path(game['quality_key']).read_text(encoding='utf-8'))
-            if report.get('version') != 1:
-                continue
-            side = 'Brancas' if game['side'] == 'white' else 'Pretas'
-            values = {key: report['counts'][key][side] for key in CATEGORIES}
-            if any(type(value) is not int or value < 0 for value in values.values()):
-                continue
-            if sum(values.values()):
-                analyzed += 1
-                for key, value in values.items():
-                    counts[key] += value
-        except (OSError, ValueError, KeyError, TypeError, AttributeError):
-            continue
+        values=individual_counts(game['quality_key'],game['side'])
+        automatic=load(game['quality_key'],game['side'])
+        if automatic and (not values or automatic['moves']>sum(values.values())):
+            values=automatic['counts']
+        if values:
+            analyzed+=1
+            for key,value in values.items():counts[key]+=value
     return counts, analyzed
 
 
@@ -143,83 +141,108 @@ DASHBOARD_CSS = """<style>
 </style>"""
 
 
-def _style(chart, height):
+def _style(chart,height):
     return chart.properties(height=height).configure(
-        background='transparent', font='Segoe UI', padding={'left': 2, 'right': 12, 'top': 10, 'bottom': 0},
+        background='transparent',font='Segoe UI',padding={'left':4,'right':22,'top':18,'bottom':4}
     ).configure_view(stroke=None).configure_axis(
-        labelColor='#d4dfd7', titleColor='#aebfb2', labelFontSize=11,
-        titleFontSize=10, titleFontWeight='normal', labelPadding=6,
-        grid=False, domain=False, ticks=False,
-    ).configure_legend(labelColor='#c8d5cc', labelFontSize=11, title=None)
+        labelColor='#aab9bf',titleColor='#899da6',labelFontSize=12,titleFontSize=11,
+        titleFontWeight='normal',labelPadding=9,domain=False,ticks=False,
+        gridColor='#eccaff30',gridOpacity=1
+    ).configure_legend(labelColor='#c5d0d3',labelFontSize=12,title=None,symbolType='circle',symbolSize=65,padding=10)
 
 
 def _daily_chart(data):
-    days = list(dict.fromkeys(row['Dia'] for row in data['daily']))
-    rows = [{'Dia': day, 'Partidas': sum(row['Partidas'] for row in data['daily'] if row['Dia'] == day)} for day in days]
-    peak = max((row['Partidas'] for row in rows), default=1)
-    base = alt.Chart(alt.Data(values=rows)).encode(
-        x=alt.X('Dia:N', sort=days, title=None, axis=alt.Axis(labelAngle=0 if len(days) == 7 else -60),
-                scale=alt.Scale(paddingInner=.35, paddingOuter=.2)),
-        y=alt.Y('Partidas:Q', title=None, axis=None, scale=alt.Scale(domain=[0, max(1, peak * 1.18)])),
-        tooltip=['Dia:N', 'Partidas:Q'],
-    )
-    bars = alt.Chart(alt.Data(values=data['daily'])).mark_bar(cornerRadiusTopLeft=3,cornerRadiusTopRight=3).encode(x=alt.X('Dia:N',sort=days,title=None,axis=alt.Axis(labelAngle=0 if len(days)==7 else -60)),y=alt.Y('Partidas:Q',stack='zero',title=None,axis=None),color=alt.Color('Resultado:N',scale=alt.Scale(domain=list(RESULTS.values()),range=RESULT_COLORS),legend=alt.Legend(orient='top')),order=alt.Order('Resultado:N'),tooltip=['Dia:N','Resultado:N','Partidas:Q'])
-    labels = base.mark_text(dy=-8, color='#ffffff', fontSize=10).encode(text='Partidas:Q')
-    return _style(bars + labels, 220)
+    days=list(dict.fromkeys(row['Dia'] for row in data['daily']))
+    totals=[{'Dia':day,'Partidas':sum(row['Partidas'] for row in data['daily'] if row['Dia']==day),
+             **{label:sum(row['Partidas'] for row in data['daily'] if row['Dia']==day and row['Resultado']==label) for label in RESULTS.values()}} for day in days]
+    base=alt.Chart(alt.Data(values=totals)).encode(
+        x=alt.X('Dia:N',sort=days,title=None,axis=alt.Axis(labelAngle=0,labelOverlap=True,grid=True)),
+        y=alt.Y('Partidas:Q',title=None,axis=alt.Axis(tickMinStep=1,tickCount=5,grid=True),scale=alt.Scale(domainMin=0)),
+        tooltip=['Dia:N','Partidas:Q','Vitórias:Q','Derrotas:Q','Empates:Q'])
+    area=base.mark_area(color=alt.Gradient(gradient='linear',stops=[alt.GradientStop(color='#fc39d5',offset=0),alt.GradientStop(color='#54088a00',offset=1)],x1=0,x2=0,y1=0,y2=1),opacity=.6)
+    line=base.mark_line(color='#fff500',strokeWidth=2.5)
+    points=base.mark_point(filled=True,fill='#8423b4',stroke='#fff500',strokeWidth=2,size=80)
+    return _style(area+line+points,240)
 
 
 def _opening_chart(data):
-    rows = data['openings'][:5]
-    base = alt.Chart(alt.Data(values=rows)).encode(
-        y=alt.Y('Abertura:N', sort=[r['Abertura'] for r in rows], title=None,
-                axis=alt.Axis(labelLimit=140, labelFontSize=9), scale=alt.Scale(paddingInner=.35)),
-        x=alt.X('Partidas:Q', title=None, axis=None,
-                scale=alt.Scale(domain=[0, max((r['Partidas'] for r in rows), default=1) * 1.2])),
-        tooltip=['Abertura:N', 'Partidas:Q', 'Vitórias:Q', 'Derrotas:Q',
-                 alt.Tooltip('Vitória (%):Q', format='.1f'), alt.Tooltip('Derrota (%):Q', format='.1f')],
-    )
-    bars = base.mark_bar(color='#54b99b',cornerRadiusEnd=4)
-    labels = base.mark_text(align='left', dx=5, color='#fff', fontSize=10).encode(text='Partidas:Q')
-    return _style(bars + labels, 140)
+    rows=data['openings'][:5]
+    peak=max((row['Partidas'] for row in rows),default=1)
+    base=alt.Chart(alt.Data(values=rows)).encode(
+        y=alt.Y('Abertura:N',sort=[r['Abertura'] for r in rows],title=None,axis=alt.Axis(labelLimit=210,labelFontSize=12),scale=alt.Scale(paddingInner=.48)),
+        x=alt.X('Partidas:Q',title=None,axis=alt.Axis(tickMinStep=1,tickCount=4,grid=True),scale=alt.Scale(domain=[0,max(1,peak*1.25)])),
+        tooltip=['Abertura:N','Partidas:Q','Vitórias:Q','Derrotas:Q',alt.Tooltip('Vitória (%):Q',format='.1f')])
+    bars=base.mark_bar(color='#ff51d4',cornerRadiusEnd=1,size=19)
+    labels=base.mark_text(align='left',dx=7,color='#dce7e9',fontSize=12,fontWeight=600).encode(text='Partidas:Q')
+    return _style(bars+labels,245)
 
 
 def _result_chart(data):
-    rows = [{'Resultado': label, 'Partidas': data['totals'].get(key, 0)} for key, label in RESULTS.items()]
-    chart = alt.Chart(alt.Data(values=rows)).mark_arc(innerRadius=42, outerRadius=65, stroke='#17251e', strokeWidth=2).encode(
-        theta=alt.Theta('Partidas:Q'),
-        color=alt.Color('Resultado:N', scale=alt.Scale(domain=list(RESULTS.values()), range=RESULT_COLORS), legend=None),
-        tooltip=['Resultado:N', 'Partidas:Q'],
-    )
-    return _style(chart, 134)
+    rows=[{'Resultado':label,'Partidas':data['totals'].get(key,0)} for key,label in RESULTS.items()]
+    total=data['total'];rate=100*data['totals'].get('wins',0)/total if total else 0
+    arcs=alt.Chart(alt.Data(values=rows)).mark_arc(innerRadius=68,outerRadius=95,stroke='#4b087c',strokeWidth=4,cornerRadius=4).encode(
+        theta=alt.Theta('Partidas:Q'),color=alt.Color('Resultado:N',scale=alt.Scale(domain=list(RESULTS.values()),range=RESULT_COLORS),legend=None),tooltip=['Resultado:N','Partidas:Q'])
+    center=alt.Chart(alt.Data(values=[{'label':f'{rate:.1f}%'.replace('.',',')}])).mark_text(color='#e3edf0',fontSize=28,fontWeight=600,dy=-5).encode(text='label:N')
+    subtitle=alt.Chart(alt.Data(values=[{'label':'de vitórias'}])).mark_text(color='#92a7ad',fontSize=12,dy=22).encode(text='label:N')
+    return _style(arcs+center+subtitle,230)
 
 
 def _quality_chart(counts):
-    rows = [{'Qualidade': category.label, 'Lances': counts[key]} for key, category in CATEGORIES.items()]
-    peak = max(counts.values(), default=1)
-    base = alt.Chart(alt.Data(values=rows)).encode(
-        x=alt.X('Qualidade:N', sort=[r['Qualidade'] for r in rows], title=None,
-                axis=alt.Axis(labelAngle=0, labelFontSize=10), scale=alt.Scale(paddingInner=.45)),
-        y=alt.Y('Lances:Q', title=None, axis=None, scale=alt.Scale(domain=[0, max(1, peak * 1.2)])),
-        tooltip=['Qualidade:N', 'Lances:Q'],
-    )
-    bars = base.mark_bar(cornerRadiusTopLeft=4,cornerRadiusTopRight=4).encode(color=alt.Color('Qualidade:N',scale=alt.Scale(domain=[item.label for item in CATEGORIES.values()],range=[item.color for item in CATEGORIES.values()]),legend=None))
-    labels = base.mark_text(dy=-8, color='#fff', fontSize=10).encode(text='Lances:Q')
-    return _style(bars + labels, 235)
+    total=sum(counts.values())
+    rows=[{'Qualidade':category.label,'Lances':counts[key],'Proporção':counts[key]/total if total else 0} for key,category in CATEGORIES.items()]
+    peak=max(counts.values(),default=1)
+    names=[r['Qualidade'] for r in rows]
+    base=alt.Chart(alt.Data(values=rows)).encode(
+        y=alt.Y('Qualidade:N',sort=names,title=None,axis=alt.Axis(labelFontSize=12),scale=alt.Scale(paddingInner=.4)),
+        x=alt.X('Lances:Q',title=None,axis=alt.Axis(tickMinStep=1,tickCount=5,grid=True),scale=alt.Scale(domain=[0,max(1,peak*1.23)])),
+        tooltip=['Qualidade:N','Lances:Q',alt.Tooltip('Proporção:Q',format='.1%')])
+    bars=base.mark_bar(cornerRadiusEnd=4,size=20).encode(color=alt.Color('Qualidade:N',scale=alt.Scale(domain=names,range=QUALITY_COLORS),legend=None))
+    labels=base.mark_text(align='left',dx=8,color='#dce7e9',fontSize=12,fontWeight=600).encode(text='Lances:Q')
+    return _style(bars+labels,260)
 
 
-def render_dashboard(history, username, dark=False, *, complete=False):
-    from html import escape
+
+def _render_kpis(data,history,username):
+    from game_phase_diagnostics import window,aggregate
+    from dashboard_auto_analysis import records_for,queue
+    from dashboard_purple import console
+    counts,analyzed=quality_counts(data['games'])
+    records=records_for(history,username,today(),30 if (today()-data['start']).days>6 else 7)
+    st.html(console(data,aggregate(window(history,username)),counts,analyzed,queue().status(records)))
+
+
+def _render_quality(data,history,username,auto):
+    from dashboard_auto_analysis import ensure,records_for
+    days=30 if (today()-data['start']).days>6 else 7
+    records=ensure(history,username,days) if auto else records_for(history,username,today(),days)
+    counts,analyzed=quality_counts(data['games']);count=sum(counts.values())
+    st.subheader('Qualidade dos seus lances')
+    from dashboard_refresh import render_queue
+    render_queue(records)
+    if count:
+        st.altair_chart(_quality_chart(counts),width='stretch',theme=None)
+    else:
+        st.html('<div class="dash-empty"><strong>Sem lances avaliados</strong><span>As partidas entram automaticamente na fila de análise.</span></div>')
+    st.caption(f'{analyzed} de {data["total"]} partidas analisadas · {count} lances seus avaliados')
+    if auto:
+        from stockfish_analysis import find_engine
+        if not find_engine():st.warning('Stockfish não foi encontrado. Configure o motor para ativar as análises automáticas.')
+        else:st.caption('Atualização automática enquanto o aplicativo estiver aberto. Novas partidas têm prioridade na fila após aparecerem no Chess.com.')
+
+
+def render_dashboard(history, username, dark=False, *, complete=False,auto_diagnostics=True):
+    from dashboard_purple import CSS
     st.html(DASHBOARD_CSS)
-    st.html("""<style>
-    .dash-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin:12px 0 20px}.dash-kpis>div{padding:20px;border:1px solid #303d34;border-radius:14px;background:linear-gradient(140deg,#1c2821,#141a16)}.dash-kpis small{font:12px system-ui;color:#a0b3a6}.dash-kpis strong{display:block;font:650 32px/1.5 system-ui;color:#f1f6ef}.dash-kpis em{font:11px system-ui;font-style:normal;color:#8ca394}.dash-details{display:flex;justify-content:space-between;flex-wrap:wrap;gap:18px;padding:17px 4px;color:#afc1b3;font:13px/1.6 system-ui}.dash-details b{color:#ecf4ed}.dash-side{display:flex;gap:22px;flex-wrap:wrap;margin-top:12px;font:12px/1.5 system-ui;color:#a9bbac}.dash-side strong{color:#e8f4ea}.st-key-performance_dashboard [data-testid=stCaptionContainer] p{font-size:12px!important}
-    @media(max-width:700px){.dash-kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.dash-kpis>div{padding:14px}.dash-kpis strong{font-size:26px}}
-    </style>""")
+    st.html(CSS)
     with st.container(key='performance_dashboard'):
-        st.title('Desempenho')
+        heading,controls=st.columns([2,1],vertical_alignment='center')
+        with heading:
+            st.html('<div class="dash-eyebrow">COACH / CENTRAL DE EVOLUÇÃO</div>')
+            st.title('Desempenho')
         if not username:
             st.info('Entre com seu usuário do Chess.com no menu lateral para ver seu desempenho.')
             return
-        period = st.segmented_control('Período do painel', ['Últimos 7 dias', 'Últimos 30 dias'],
+        with controls:period = st.segmented_control('Período do painel', ['Últimos 7 dias', 'Últimos 30 dias'],
                                       default='Últimos 7 dias', key='dashboard_period',label_visibility='collapsed') or 'Últimos 7 dias'
         end=today()
         data=dashboard_data(history,username,end,7 if period=='Últimos 7 dias' else 30)
@@ -228,37 +251,27 @@ def render_dashboard(history, username, dark=False, *, complete=False):
         if not total:
             st.info('Nenhuma partida concluída neste período no histórico carregado.')
             return
-        counts,analyzed=quality_counts(data['games'])
-        count=sum(counts.values())
-        winrate=100*data['totals'].get('wins',0)/total
-        active_days=len({row['Data'] for row in data['daily'] if row['Partidas']})
-        cards=[('Partidas',str(total),f'{active_days} dias ativos'),
-               ('Taxa de vitória',f'{winrate:.1f}%'.replace('.',','),'Empates incluídos no total'),
-               ('Lances por partida',f'{data["moves"]/total:.1f}'.replace('.',','),'Média dos seus lances'),
-               ('Cobertura da análise',f'{100*analyzed/total:.0f}%',f'{analyzed} partidas avaliadas')]
-        st.html('<div class="dash-kpis">'+''.join(f'<div><small>{escape(label)}</small><strong>{escape(value)}</strong><em>{escape(detail)}</em></div>' for label,value,detail in cards)+'</div>')
-        left,right=st.columns([1.6,1],gap='medium')
-        with left,st.container(key='dash_card_daily'):
+        from dashboard_refresh import watch_reports
+        watch_reports(history,username,30 if period=='Últimos 30 dias' else 7,auto_diagnostics)
+        with st.container(key='dash_card_daily'):
             st.subheader('Atividade e resultados')
             st.altair_chart(_daily_chart(data),width='stretch',theme=None)
-        with right,st.container(key='dash_card_results'):
+        _render_kpis(data,history,username)
+        results,quality,openings=st.columns([1,1.35,1.2],gap='medium')
+        with results,st.container(key='dash_card_results'):
             st.subheader('Vitórias, derrotas e empates')
             st.altair_chart(_result_chart(data),width='stretch',theme=None)
             rates=''.join(f'<div><i style="background:{color}"></i>{label}<strong>{100*data["totals"].get(key,0)/total:.1f}%</strong>{data["totals"].get(key,0)} partidas</div>' for (key,label),color in zip(RESULTS.items(),RESULT_COLORS)).replace('.',',')
             st.html(f'<div class="dash-rates">{rates}</div>')
-        left,right=st.columns([1.6,1],gap='medium')
-        with left,st.container(key='dash_card_quality'):
-            st.subheader('Qualidade dos seus lances')
-            if count:
-                st.altair_chart(_quality_chart(counts),width='stretch',theme=None)
-            else:
-                st.html('<div class="dash-empty"><strong>Sem lances avaliados</strong><span>Analise uma partida para preencher este gráfico.</span></div>')
-            st.caption(f'{analyzed} de {total} partidas analisadas · {count} lances seus avaliados')
-        with right,st.container(key='dash_card_openings'):
+        with quality,st.container(key='dash_card_quality'):
+            _render_quality(data,history,username,auto_diagnostics)
+        with openings,st.container(key='dash_card_openings'):
             st.subheader('Aberturas mais jogadas')
             st.altair_chart(_opening_chart(data),width='stretch',theme=None)
             sides=''.join(f'<span>{row["Cor"]}: <strong>{row["Vitória (%)"]:.1f}% de vitórias</strong> · {row["Partidas"]} partidas</span>' if row['Partidas'] else f'<span>{row["Cor"]}: sem partidas</span>' for row in data['sides'])
             st.html('<div class="dash-side">'+sides+'</div>')
+        from dashboard_diagnostics_ui import render_diagnostics
+        render_diagnostics(history,username,complete,auto_diagnostics)
         longest=max(data['lengths'],key=lambda row:row['Partidas'])
         st.html(f'<div class="dash-details"><span>Seus lances no período: <b>{data["moves"]}</b></span><span>Aberturas diferentes: <b>{len(data["openings"])}</b></span><span>Duração mais comum: <b>{longest["Seus lances por partida"]} lances seus</b></span></div>')
         coverage='Período completo' if complete else 'Histórico parcial · carregando período completo'

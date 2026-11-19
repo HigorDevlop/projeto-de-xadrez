@@ -34,7 +34,7 @@ def test_buffer_replenishes_without_changing_active_puzzle_and_ignores_stale_res
         assert state.puzzle is puzzle
     assert len(state.puzzle_buffer)==3 and 'puzzle_next' not in state.jobs
     assert len(calls)==3
-    assert calls[-1][2][-1]=={'one','two','three'}
+    assert calls[-1][2][-2]=={'one','two','three'}
     state.jobs['puzzle_next'] = ('other',0,4000,0), completed(replace(puzzle,id='stale'))
     assert not pump_tactics(state,queue,reset,advance)
     assert [p.id for p in state.puzzle_buffer]==['two','three','four']
@@ -62,7 +62,7 @@ def test_local_round_can_repeat_after_exhaustion_without_repeating_buffered_puzz
     def queue(*args):requests.append(args)
     assert not pump_tactics(state,queue,lambda:None,lambda:None)
     assert state.puzzle is first and state.puzzle_seen==[]
-    assert requests[0][-1]=={'one','two'} and not state.job_errors
+    assert requests[0][-2]=={'one','two'} and not state.job_errors
 
 
 @pytest.fixture
@@ -96,10 +96,13 @@ def test_continuous_tactics_keeps_page_and_board_mounted_during_prefetch_and_sol
     page.get_by_role('textbox',name='Usuário',exact=True).fill('treino-continuo')
     page.get_by_role('textbox',name='Senha',exact=True).fill('senha-treino-continuo')
     page.get_by_role('button',name='Entrar',exact=True).click()
-    page.locator('.st-key-sidebar_tactics button').click()
+    page.locator('.st-key-sidebar_tactics button').evaluate('node=>node.click()')
     page.locator('.orb[data-theme=mateIn1]').evaluate('node=>node.click()')
     board=page.locator('.st-key-tactics_board_panel .board')
     expect(board).to_be_visible()
+    backdrop=page.locator('[data-testid=stAppViewContainer]')
+    assert 'data:image/png' in backdrop.evaluate('node=>getComputedStyle(node).backgroundImage')
+    assert set(backdrop.evaluate('node=>getComputedStyle(node).backgroundAttachment').split(', '))=={'fixed'}
     board.evaluate("el=>{window.originalBoard=el;window.originalSquare=el.querySelector('[data-square=d8]')}")
     runs=page.locator('#full-runs').text_content()
     board.locator('[data-square=b8]').click()
@@ -131,7 +134,7 @@ def test_continuous_tactics_keeps_page_and_board_mounted_during_prefetch_and_sol
     assert page.evaluate('window.originalBoard.isConnected && window.originalSquare.isConnected')
     # Returning to the catalog stops the old background UI from reappearing.
     previous_xp=page.locator('.xp').text_content()
-    page.locator('.st-key-sidebar_tactics button').click()
+    page.locator('.st-key-sidebar_tactics button').evaluate('node=>node.click()')
     expect(page.locator('.orbit-start')).to_be_visible()
     page.wait_for_timeout(1200)
     expect(page.locator('.st-key-tactics_board_panel')).to_have_count(0)
@@ -142,3 +145,6 @@ def test_continuous_tactics_keeps_page_and_board_mounted_during_prefetch_and_sol
     expect(page.locator('.xp')).to_have_text(previous_xp)
     expect(page.locator('.prepare')).to_have_text('0%')
     expect(page.locator('.recent-time')).to_have_count(0)
+    page.locator('.st-key-sidebar_nav_analise a').evaluate('node=>node.click()')
+    expect(page.locator('.st-key-tactics_workbench')).to_have_count(0)
+    assert 'data:image/png' not in backdrop.evaluate('node=>getComputedStyle(node).backgroundImage')

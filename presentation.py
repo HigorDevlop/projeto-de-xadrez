@@ -2,13 +2,14 @@
 from html import escape
 import streamlit as st
 from chess_review import CATEGORIES
+from quality_icons import icon_html
 from design_tokens import palette
 from cursor_theme import CURSOR_STYLE
 
 
 def classification_legend():
     with st.expander(f'Legenda dos {len(CATEGORIES)} tipos de lance'):
-        entries = ''.join(f'<li><span class="quality-key" style="background:{c.color};color:{c.ink}" aria-hidden="true">{escape(c.symbol)}</span><div><strong>{escape(c.label)}</strong><p>{escape(c.description)}</p></div></li>' for c in CATEGORIES.values())
+        entries = ''.join(f'<li><span class="quality-key" style="background:{c.color};color:{c.ink}" aria-hidden="true">{icon_html(c)}</span><div><strong>{escape(c.label)}</strong><p>{escape(c.description)}</p></div></li>' for c in CATEGORIES.values())
         st.html(f'<ul class="quality-legend" aria-label="{len(CATEGORIES)} classificações de lances">{entries}</ul>')
 
 
@@ -41,7 +42,8 @@ def apply_theme(dark):
     p = palette(dark)
     variables = ';'.join(f'--chess-{key.replace("_", "-")}:{value}' for key,value in p.items())
     move_colors = ''.join(f'[class*="st-key-move_quality_{key}_"] button{{background:{c.color}!important;color:{c.ink}!important;border:2px solid {c.ink}!important;min-height:44px}}[class*="st-key-move_quality_{key}_"] button *{{color:{c.ink}!important;background:transparent!important}}' for key,c in CATEGORIES.items())
-    st.html('<style>:root{color-scheme:'+('dark' if dark else 'light')+';'+variables+'}'+STYLE+SURFACE_STYLE+move_colors+CURSOR_STYLE+'</style>')
+    from futurist_theme import CSS as FUTURIST_CSS
+    st.html('<style>:root{color-scheme:'+('dark' if dark else 'light')+';'+variables+'}'+STYLE+SURFACE_STYLE+move_colors+CURSOR_STYLE+FUTURIST_CSS+'</style>')
 
 
 STYLE = '''

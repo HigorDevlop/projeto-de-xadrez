@@ -522,3 +522,20 @@ def test_forge_encourages_each_success_without_repeating_on_refresh(browser_page
         page.evaluate('(data)=>window.render(data)', update)
         assert page.get_by_role('status').inner_text() == phrase
     assert len(set(phrases)) == 4
+
+def test_board_appearance_changes_without_losing_moves(browser_page):
+    page = browser_page
+    data = board_data()
+    data['trainingLine'] = True
+    data['boardAppearance'] = {'duration': 550, 'colors': ['#E7EEF3', '#64839C', '#30495E'], 'style': 'Relevo'}
+    mount(page, 'interactive_board.py', data)
+    assert page.locator('[data-square="e4"]').evaluate('(e)=>getComputedStyle(e).backgroundColor') == 'rgb(231, 238, 243)'
+    assert page.locator('.workspace').get_attribute('data-finish') == 'Relevo'
+    page.evaluate('window.keptSquare=document.querySelector("[data-square=e2]")')
+    data['boardAppearance'] = {'duration': 0, 'colors': ['#EFDCBA', '#AF8B68', '#654A34'], 'style': 'Madeira'}
+    page.evaluate('(data)=>window.render(data)', data)
+    assert page.evaluate('window.keptSquare===document.querySelector("[data-square=e2]")')
+    assert page.locator('[data-square="e4"]').evaluate('(e)=>getComputedStyle(e).backgroundColor') == 'rgb(239, 220, 186)'
+    drag(page, 'e2', 'e4')
+    page.wait_for_function('window.events.length===1')
+    assert page.evaluate('window.events[0].value.uci') == 'e2e4'

@@ -55,7 +55,7 @@ def revision(session):
     return f"{session['token']}:{session['revision']}"
 
 
-def submit(session, event, now, rng=None):
+def submit(session, event, now, rng=None, *, assisted=False):
     exercise = current_exercise(session)
     if (not isinstance(event, dict) or session['phase'] != 'answer' or not exercise
             or event.get('revision') != revision(session) or event.get('fen') != exercise['fen']):
@@ -69,7 +69,7 @@ def submit(session, event, now, rng=None):
         return False
     item = session['positions'][session['current']]
     correct = move.uci() == exercise['uci']
-    item['status'] = ('correct' if item['status'] == 'learning' else 'learning') if correct else 'error'
+    item['status'] = ('correct' if item['status'] == 'learning' and not assisted else 'learning') if correct else 'error'
     item['attempts'] += 1
     item['correct_attempts'] += int(correct)
     item['wrong_attempts'] += int(not correct)

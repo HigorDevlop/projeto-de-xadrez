@@ -8,7 +8,7 @@ from preparation_state import STAGES, today
 _ROADMAP = st.components.v2.component(
     'preparation_roadmap',
     html='<section class="trail" aria-label="Trilha de treino"><div class="path"><svg aria-hidden="true"></svg><div class="days"></div></div></section>',
-    css='''
+    css="""
     .trail{max-height:490px;overflow:auto;padding:20px 12px;scrollbar-width:thin;background:var(--soft);border-radius:20px}
     .path{position:relative;margin:auto}.path>svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
     .days{display:grid;position:relative;gap:32px 24px;justify-items:center}
@@ -26,7 +26,9 @@ _ROADMAP = st.components.v2.component(
     .repertoire .day strong{font-size:30px}.repertoire .day small{font-size:10px}
     .repertoire .day strong svg{width:38px;height:38px;display:block;fill:currentColor}
     @media(prefers-reduced-motion:reduce){.day{transition:none}}
-    ''',
+    
+/* Coach HUD */
+.trail{background:linear-gradient(140deg,#062b43,#031327)!important;border:1px solid #17617b!important;border-radius:5px!important}.day{border-radius:4px!important;box-shadow:0 4px 0 #031020!important}.day.current{outline:1px solid #ff9b4e;outline-offset:4px}""",
     js='''export default function({data,parentElement,setTriggerValue}) {
       const host=parentElement.host??parentElement, trail=parentElement.querySelector('.trail');
       const grid=parentElement.querySelector('.days'),svg=parentElement.querySelector('svg');

@@ -11,6 +11,12 @@ from tactics_preview import answer_preview
 BUFFER_SIZE = 3
 
 
+def training_puzzle(theme,minimum,maximum,excluded,target):
+    from tactics_difficulty import training_range
+    low,high=training_range(theme,minimum,maximum,set(excluded or ()),target)
+    return fetch_puzzle_range(theme,low,high,excluded)
+
+
 # A timed fragment cannot directly rerun another fragment. Hand off through a
 # component callback, the supported keyed-rerun API, only for an active change.
 _READY = st.components.v2.component('tactics_ready', html='<span hidden></span>', js='''
@@ -59,14 +65,17 @@ def pump_tactics(state, queue_job, reset_puzzle, advance_puzzle):
             and ('puzzle_next', state.puzzle_request) not in state.job_errors):
         theme, minimum, maximum, _ = state.puzzle_request
         excluded = {state.puzzle.id} | {p.id for p in state.puzzle_buffer} | set(state.puzzle_seen)
-        queue_job('puzzle_next', state.puzzle_request, fetch_puzzle_range,
-                  theme, minimum, maximum, excluded)
+        from tactics_difficulty import target_rating
+        queue_job('puzzle_next', state.puzzle_request, training_puzzle,
+                  theme, minimum, maximum, excluded,target_rating(state))
     return active_changed
 
 
 @st.fragment(run_every=.5)
 def buffer_status(queue_job, reset_puzzle, advance_puzzle):
     state = st.session_state
+    from tactics_session import expired
+    if expired(state):return
     if state.tactic_theme is None or state.active_tab != 'Tático':
         return
     pump_tactics(state, queue_job, reset_puzzle, advance_puzzle)
@@ -85,7 +94,8 @@ def buffer_status(queue_job, reset_puzzle, advance_puzzle):
             state.job_errors.pop((slot, state.puzzle_request), None)
             if not state.puzzle:
                 theme, minimum, maximum, _ = state.puzzle_request
-                queue_job('puzzle', state.puzzle_request, fetch_puzzle_range, theme, minimum, maximum)
+                from tactics_difficulty import target_rating
+                queue_job('puzzle', state.puzzle_request, training_puzzle, theme, minimum, maximum,(),target_rating(state))
 
     _READY(data={'refresh':state.puzzle_revision != state.get('puzzle_render_revision'),
                  'tick':state.tactic_poll_tick,'ready':bool(state.puzzle) or bool(state.job_errors.get(('puzzle',state.puzzle_request)))}, key='tactics_ready', height=0,
@@ -115,11 +125,22 @@ def render_workspace(choose_theme,reset_puzzle,puzzle_changed,advance_puzzle,que
     from tactics_dashboard import render_stats
     state=st.session_state
     style()
+    from tactics_zombies_frame import style_frame,plaque
+    style_frame()
     with st.container(key='tactics_workbench'):
         if state.tactic_theme is None:
             from tactics_orbit import render_orbit
             if not state.get('tactics_orbit_token'):state.tactics_orbit_token=uuid4().hex
             render_orbit(choose_theme,state.tactics_orbit_token)
+            return
+        from tactics_session import expired,render_clock
+        if expired(state):
+            st.html('<h2 class="tactics-title">Tempo encerrado</h2><p class="tactics-meta">Treino concluído · Seus pontos foram salvos.</p>')
+            try:
+                stats=summary(owner_for(state),state.tactic_theme,session=state.get('tactic_session_id'))
+                render_stats(stats,0,False,state.get('tactic_clock_key'))
+            except (OSError,sqlite3.Error):st.error('Não foi possível abrir seu histórico tático.')
+            st.button('Escolher próximo treino',on_click=choose_theme,args=(None,),type='primary')
             return
         theme_names={theme:label for label,theme in THEMES.items()}
         title,back=st.columns([4,1],vertical_alignment='center')
@@ -138,12 +159,17 @@ def render_workspace(choose_theme,reset_puzzle,puzzle_changed,advance_puzzle,que
                 state.puzzle_request,state.puzzle=request_key,None
                 state.puzzle_buffer,state.puzzle_seen=[],[]
                 reset_puzzle()
-                queue_job('puzzle',request_key,fetch_puzzle_range,state.tactic_theme,minimum,maximum)
+                from tactics_difficulty import target_rating
+                queue_job('puzzle',request_key,training_puzzle,state.tactic_theme,minimum,maximum,(),target_rating(state))
             pump_tactics(state,queue_job,reset_puzzle,advance_puzzle)
+            if state.puzzle and state.get('tactic_deadline') is None:
+                state.tactic_deadline=perf_counter()+state.get('tactic_duration_seconds',180)
+            if state.get('tactic_deadline') is not None:render_clock(state)
             state.puzzle_render_revision=state.puzzle_revision
             left,right=st.columns([1.8,1],gap='large')
             puzzle=state.puzzle
             with left,st.container(key='tactics_board_panel'):
+                plaque()
                 if puzzle:
                     board=chess.Board(puzzle.fen);player=board.turn
                     for move in puzzle.solution[:state.puzzle_progress]:board.push_uci(move)
@@ -179,7 +205,9 @@ def render_workspace(choose_theme,reset_puzzle,puzzle_changed,advance_puzzle,que
                     with skip:buffer_status(queue_job,reset_puzzle,advance_puzzle)
                 if state.get('tactic_save_error'):st.caption(state.tactic_save_error)
         with st.container(key='tactics_footer',horizontal=True,vertical_alignment='center'):
-            if state.puzzle:st.caption(f'Lichess · {state.puzzle.rating} · Offline')
+            if state.puzzle:
+                from tactics_difficulty import target_rating
+                st.caption(f'Lichess · {state.puzzle.rating} · Offline · Dificuldade progressiva · Alvo {target_rating(state)}')
             with st.popover('Ajustes',icon=':material/tune:'):
                 def change_theme():choose_theme(state.tactic_menu)
                 st.selectbox('Tema',list(theme_names),index=list(theme_names).index(state.tactic_theme),format_func=theme_names.get,key='tactic_menu',on_change=change_theme)

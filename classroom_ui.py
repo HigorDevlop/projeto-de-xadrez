@@ -36,7 +36,7 @@ def _clear_workspace():
     for key in list(state):
         if key.startswith(prefixes):
             state.pop(key, None)
-    for key in ('_book_library_owner', 'books', 'interactive_board', 'quick_answer',
+    for key in ('_book_library_owner', '_book_sources_cache', '_analysis_files', '_analysis_library_id', 'books', 'interactive_board', 'quick_answer',
                 'import_text', 'import_file', 'move_error', 'last_explanation',
                 'quality_save_error', 'chesscom_login_username'):
         state.pop(key, None)
@@ -125,7 +125,8 @@ def access(show_session=True):
                 try:_training_context(rooms.room_session(token));st.rerun()
                 except (ValueError,PermissionError) as error:st.error(str(error))
         else:
-            with st.expander('Juntar-se à sala'):
+            with st.expander('Tenho uma chave do professor',expanded=True,icon=':material/key:'):
+                st.caption('Cole a chave recebida para abrir sua trilha de treino.')
                 with st.form('join_professor_room'):
                     code=st.text_input('Código da sala',type='password')
                     if st.form_submit_button('Juntar-se à sala'):
@@ -134,6 +135,24 @@ def access(show_session=True):
     if show_session:
         session_settings(user)
     return user
+
+
+def join_room_panel():
+    token=st.session_state.get('classroom_token')
+    actor=rooms.identity(token)
+    if not actor or actor['role']!='user' or rooms.membership(token):return
+    st.html('<style>.st-key-classroom_join_panel{padding:22px!important;border:1px solid #8b7848!important;border-radius:18px!important;background:linear-gradient(125deg,#273a2e,#17251f)!important;box-shadow:0 8px 22px #0003}.st-key-classroom_join_panel [data-testid=stForm]{border:0;background:transparent;padding:0}</style>')
+    with st.container(border=True,key='classroom_join_panel'):
+        st.subheader('Recebeu uma chave do professor?',anchor=False)
+        st.write('Cole a chave abaixo para entrar na sala e receber sua trilha de treino.')
+        with st.form('join_professor_room_main'):
+            code=st.text_input('Chave de acesso do professor',placeholder='Cole aqui a chave recebida',type='password')
+            if st.form_submit_button('Entrar na sala do professor',icon=':material/key:',type='primary',width='stretch'):
+                try:
+                    _training_context(rooms.join_room(token,code))
+                    st.session_state.requested_page='Preparo'
+                    st.rerun()
+                except (ValueError,PermissionError) as error:st.error(str(error))
 
 
 def session_settings(user):
@@ -200,10 +219,16 @@ def professor_workspace(token):
     _class_style()
     from classroom_design import hero,section,summary as plan_summary
     if user['role']=='admin':rooms.ensure_admin_room(token)
+    from classroom_challenges_ui import teacher as teacher_challenges
+    teacher_challenges(token)
     roster=rooms.students(token)
     if not roster:
         hero('Modo Preparo')
         st.info('Ainda não há alunos. Emita uma chave de Professor em Usuários para iniciar uma sala.');return
+    if training_request:=st.session_state.pop('prep_roster_training_request',None):
+        if any(row['id']==training_request and not row['banned'] for row in roster):
+            st.session_state.prep_workspace_student=training_request
+            st.session_state.prep_workspace_tabs='Treino e provas'
     heading,selector=st.columns([2.2,1],vertical_alignment='center')
     with heading:hero('Modo Preparo','Crie cursos e teste no seu laboratório. Gerencie todas as salas.' if user['role']=='admin' else 'Planeje, acompanhe e converse com sua turma.')
     selected=selector.selectbox('Selecionar aluno',[row['id'] for row in roster],key='prep_workspace_student',
@@ -211,11 +236,7 @@ def professor_workspace(token):
     student=next(row for row in roster if row['id']==selected)
     profile=rooms.dashboard(token,selected)
     st.html('<div class="prep-profile"><span class="prep-avatar">'+escape(student['name'][:1].upper())+'</span><div><strong>'+escape(student['name'])+'</strong><small>'+('Rotina definida' if profile['routine'] else 'Pronto para uma nova rotina')+'</small></div><span class="prep-profile-tag">'+str(student['warnings'])+'/3 advertências</span></div>')
-    keys,editor,materials_tab,courses_tab,dashboard,audit,chat,lessons=st.tabs(['4 chaves de acesso','Rotina individual','Treino e provas','Cursos e manutenção','Dashboard','Presença e advertências','Conversas','Aulas'],key='prep_workspace_tabs',on_change='rerun')
-    with courses_tab:
-        if courses_tab.open:
-            from classroom_courses_ui import courses_workspace
-            courses_workspace(token,selected,roster)
+    keys,editor,materials_tab,dashboard,audit,chat,lessons=st.tabs(['Alunos e acessos','Rotina individual','Treino e provas','Dashboard','Presença e advertências','Conversas','Aulas'],key='prep_workspace_tabs',on_change='rerun')
     with materials_tab:
         if materials_tab.open:
             from classroom_materials_ui import teacher_materials
@@ -233,21 +254,9 @@ def professor_workspace(token):
             from community_ui import lesson_room
             lesson_room(token,student['room'],teacher=True)
     with keys:
-        seats=st.columns(2)
-        for index,row in enumerate(roster):
-            with seats[index%2].container(border=True,key='seat_'+row['id']):
-                st.write(f"**Vaga {row['slot']} · {row['name']} · {row['warnings']}/3 advertências**")
-                if row['banned']:st.error('Banido · chave revogada')
-                else:st.code(row['access_key'],language=None)
-        with st.form('student_details_'+selected):
-            name=st.text_input('Nome do aluno',value=student['name'])
-            chesscom=st.text_input('Usuário Chess.com do aluno',value=student['chesscom'])
-            if st.form_submit_button('Salvar dados do aluno'):
-                try:
-                    rooms.update_student(token,selected,name,chesscom)
-                    st.session_state.pop('classroom_games_'+selected,None)
-                    st.rerun()
-                except ValueError as error:st.error(str(error))
+        if keys.open:
+            from classroom_roster_ui import roster_cards
+            roster_cards(token,roster)
     with editor:
         from opening_repertoires import catalog
         from opening_reference_catalog import display_name
@@ -391,6 +400,8 @@ def student_workspace(token):
     _class_style()
     from classroom_design import hero
     hero('Modo Preparo','Seu próximo passo começa aqui.')
+    from classroom_challenges_ui import student as student_challenges
+    student_challenges(token)
     def opening(event):
         st.session_state.room_opening_request=event
         st.session_state.requested_page='Aberturas'

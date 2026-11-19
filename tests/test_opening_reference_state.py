@@ -7,7 +7,7 @@ import pytest
 from opening_course_state import select_course, begin_line, course_lines, receive_move, settle_immediate
 from opening_training_state import board_for, expected_move
 from opening_reference_progress import continue_checkpoint, position_progress, streak, record_activity
-from opening_reference_endgames import EXERCISES
+from endgame_lessons import LESSONS
 
 
 def event(session, move):
@@ -63,14 +63,12 @@ def test_streak_combines_courses_and_keeps_yesterday_before_todays_training():
     assert plan['reference_activity'] == ['2026-10-14']
 
 
-@pytest.mark.parametrize('name,fen', EXERCISES)
-def test_endgame_exercises_are_legal_and_have_mate_in_one(name, fen):
-    board = chess.Board(fen)
+@pytest.mark.parametrize('lesson', LESSONS)
+def test_endgame_exercises_and_demonstrations_are_legal(lesson):
+    board = chess.Board(lesson['fen'])
     assert board.is_valid()
-    mates = []
-    for move in board.legal_moves:
-        after = board.copy()
-        after.push(move)
-        if after.is_checkmate():
-            mates.append(move)
-    assert mates, name
+    assert not board.is_game_over()
+    for uci in lesson['line']:
+        move = chess.Move.from_uci(uci)
+        assert move in board.legal_moves
+        board.push(move)

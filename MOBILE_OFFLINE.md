@@ -1,5 +1,9 @@
 # Distribuição móvel offline: estado real da implementação
 
+Etapa adicional local: veja [Continuidade entre dispositivos](CONTINUIDADE_DISPOSITIVOS.md)
+para os adaptadores de leitura, inspeção de conflitos e envelopes cifrados. Eles
+ainda não ativam restauração automática nem cifram os checkpoints legados abaixo.
+
 ## O que já está implementado
 
 - Em **Usuários → Usuários**, o Superadministrador vê cadastro, último login, última atividade e pode autorizar ou bloquear contas comuns. A lista de dispositivos mostra somente aparelhos efetivamente identificados pela sincronização, com plataforma, versão e último envio.

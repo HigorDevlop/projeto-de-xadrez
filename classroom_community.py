@@ -60,7 +60,9 @@ def publish_video(token,title,url='',media=None,mime='',room=None):
     with rooms.database() as db:
         actor,room=context(db,token,room)
         if actor['role']=='student':raise PermissionError('Somente o Professor publica aulas.')
-        db.execute('INSERT INTO room_videos VALUES(?,?,?,?,?,?,?)',(secrets.token_hex(16),room,title.strip()[:150],url,media,mime,time.time()))
+        identifier=secrets.token_hex(16)
+        db.execute('INSERT INTO room_videos VALUES(?,?,?,?,?,?,?)',(identifier,room,title.strip()[:150],url,media,mime,time.time()))
+        return identifier
 
 
 def video_media(token,identifier,room=None):

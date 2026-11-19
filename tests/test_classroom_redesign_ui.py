@@ -18,7 +18,7 @@ def test_preparation_empty_states_editor_and_mobile(browser_page,coach_server,tm
     page.get_by_role('textbox',name='Chave especial do Professor (obrigatória)',exact=True).fill(invite)
     page.get_by_role('button',name='Entrar',exact=True).click()
     expect(page.locator('.prep-hero h2')).to_have_text('Modo Preparo')
-    for tab,slug in [('4 chaves de acesso','keys'),('Rotina individual','routine'),('Dashboard','dashboard'),('Presença e advertências','attendance'),('Conversas','chat'),('Aulas','lessons')]:
+    for tab,slug in [('Alunos e acessos','keys'),('Rotina individual','routine'),('Dashboard','dashboard'),('Presença e advertências','attendance'),('Conversas','chat'),('Aulas','lessons')]:
         page.get_by_role('tab',name=tab,exact=True).click()
         if tab=='Conversas':expect(page.get_by_placeholder('Escreva uma mensagem')).to_be_visible()
         if tab=='Aulas':expect(page.get_by_role('button',name='Iniciar aula ao vivo',exact=False)).to_be_visible()

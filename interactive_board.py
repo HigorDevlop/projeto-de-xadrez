@@ -14,8 +14,8 @@ _BOARD = st.components.v2.component(
     html='''<div class="workspace"><section><div class="board-floor"><div class="board-stage"><div class="evaluation-bar" hidden role="meter" aria-label="Avaliação da posição" aria-valuemin="0" aria-valuemax="100"><div class="evaluation-white"></div><i class="evaluation-mid"></i><span class="evaluation-top" aria-hidden="true">♚</span><span class="evaluation-bottom" aria-hidden="true">♔</span><span class="evaluation-label"></span></div><div class="board" aria-label="Tabuleiro interativo"></div>
     <svg class="arrows" viewBox="0 0 800 800" aria-hidden="true"></svg>
     <svg class="training-hint-layer" viewBox="0 0 800 800" aria-hidden="true"></svg>
-    <svg class="move-effect-layer" viewBox="0 0 800 800" aria-hidden="true"></svg></div><div class="cat-place" aria-hidden="true"></div></div>
-    <div class="promotion"></div><nav aria-label="Navegação de lances">
+    <svg class="move-effect-layer" viewBox="0 0 800 800" aria-hidden="true"></svg><div class="promotion"></div></div><div class="cat-place" aria-hidden="true"></div></div>
+    <nav aria-label="Navegação de lances">
     <button type="button" data-nav="first" aria-label="Posição inicial">⏮</button>
     <button type="button" data-nav="previous" aria-label="Lance anterior">←</button>
     <span class="move-counter" aria-live="polite"></span>
@@ -24,14 +24,25 @@ _BOARD = st.components.v2.component(
     <div class="turn-indicator" role="status" aria-live="polite"><span class="turn-dot" aria-hidden="true"></span><span class="turn-label"></span></div>
     <p class="evaluation-readout" hidden role="status" aria-live="polite"></p>
     <p class="move-quality" role="status" aria-live="polite" hidden><span aria-hidden="true"></span><strong></strong></p></section>
-    <aside class="analysis-notes" hidden aria-label="Anotações da partida"><header><div><small>SUA PARTIDA</small><h3>Lances e anotações</h3></div><button type="button" class="notes-start">Início</button></header><div class="analysis-panel-tabs" role="tablist" aria-label="Painel de estudo"><button type="button" class="notes-tab" role="tab" aria-selected="true">Anotações</button><button type="button" class="notebook-tab" role="tab" aria-selected="false" hidden>Caderno</button></div><div class="notes-pane"><div class="notes-colours"><span></span><span>Brancas</span><span>Pretas</span></div><div class="notes-list" tabindex="0"></div><footer class="notes-comment"></footer></div><div class="notebook-pane" hidden><div class="notebook-saved" hidden><select aria-label="Cadernos salvos"></select><button type="button" class="notebook-resume">Retomar partida anotada</button></div><div class="notebook-modes"><button type="button" data-note-mode="position">Posição atual</button><button type="button" data-note-mode="general">Resumo</button></div><small class="notebook-position"></small><label class="notebook-label" for="study-notebook-text">Pontos importantes do estudo</label><textarea id="study-notebook-text" class="notebook-editor" aria-label="Pontos importantes do estudo" placeholder="Ideias, planos e pontos importantes..." spellcheck="true" lang="pt-BR" maxlength="20000"></textarea><div class="notebook-actions"><button type="button" class="notebook-save">Salvar anotação</button><button type="button" class="notebook-download">Baixar caderno</button></div><small class="notebook-status" role="status" aria-live="polite"></small><details class="notebook-history"><summary>Pontos anotados</summary><div></div></details></div></aside>
+    <aside class="analysis-notes" hidden aria-label="Anotações da partida"><header><div><small>SUA PARTIDA</small><h3>Lances e anotações</h3></div><button type="button" class="notes-start">Início</button></header><div class="analysis-panel-tabs" role="tablist" aria-label="Painel de estudo"><button type="button" class="summary-tab" role="tab" aria-selected="false" hidden>Resumo</button><button type="button" class="notes-tab" role="tab" aria-selected="true">Anotações</button><button type="button" class="notebook-tab" role="tab" aria-selected="false" hidden>Caderno</button></div><div class="summary-pane" hidden></div><div class="notes-pane"><div class="notes-colours"><span></span><span>Brancas</span><span>Pretas</span></div><div class="notes-list" tabindex="0"></div><footer class="notes-comment"></footer></div><div class="notebook-pane" hidden><div class="notebook-saved" hidden><select aria-label="Cadernos salvos"></select><button type="button" class="notebook-resume">Retomar partida anotada</button></div><div class="notebook-modes"><button type="button" data-note-mode="position">Posição atual</button><button type="button" data-note-mode="general">Resumo</button></div><small class="notebook-position"></small><label class="notebook-label" for="study-notebook-text">Pontos importantes do estudo</label><textarea id="study-notebook-text" class="notebook-editor" aria-label="Pontos importantes do estudo" placeholder="Ideias, planos e pontos importantes..." spellcheck="true" lang="pt-BR" maxlength="20000"></textarea><div class="notebook-actions"><button type="button" class="notebook-save">Salvar anotação</button><button type="button" class="notebook-download">Baixar caderno</button></div><small class="notebook-status" role="status" aria-live="polite"></small><details class="notebook-history"><summary>Pontos anotados</summary><div></div></details></div></aside>
     <aside class="lesson" hidden><h3>Estudo com Bobby Fischer</h3>
     <p class="lesson-text" aria-live="polite"></p><small>Explicações preparadas para toda a partida.</small></aside></div>''',
     css="""
+
+    .summary-pane[hidden]{display:none}.summary-pane{overflow:auto;min-height:0;flex:1;padding:16px;scrollbar-width:thin;scrollbar-color:#655638 transparent}
+    .analysis-notes{border-top-color:#67604f;box-shadow:inset 0 2px 1px #ffffff12,0 4px 0 #11110f,0 14px 30px #0006}
+    .notes-row{margin-bottom:7px;padding:6px 3px;background:linear-gradient(145deg,#302e29,#211f1c);border:1px solid #ffffff08;box-shadow:inset 0 1px #ffffff09,0 3px 5px #0004;border-radius:10px}
+    .notes-row:nth-child(even){background:linear-gradient(145deg,#292824,#1c1c19)}
+    .notes-move button{font-weight:650;text-shadow:0 1px 2px #0008;min-height:38px}
+    .notes-move button[aria-current=true]{background:linear-gradient(145deg,#634924,#382b19);box-shadow:inset 0 1px #ffd38640,0 3px 7px #0006;border-color:#bf8b43}
+    .notes-inline-comment{background:#131612;border-left:2px solid #b89a60;border-radius:5px;padding:8px;margin:6px;box-shadow:inset 0 2px 4px #0005}
+    .review-players{display:grid;grid-template-columns:1fr 1fr;gap:20px;text-align:center;color:#eee}.review-player{min-width:0}.review-player b{display:block;overflow-wrap:anywhere;font-size:12px}.review-avatar{display:grid;place-items:center;margin:10px auto;width:54px;height:54px;border:2px solid #c9a34c;border-radius:13px;background:linear-gradient(145deg,#39372c,#161713);font-size:27px;box-shadow:inset 0 1px #fff2,0 4px 10px #0005}.review-player strong{display:block;padding:10px;background:#121310;border-radius:9px;font-size:24px;color:#f0d08d;box-shadow:inset 0 2px 5px #0008,0 1px #fff1}.review-player small{font-size:9px;color:#999}.review-score-title{text-align:center;color:#a59d8d;font-size:11px;margin:12px 0}
+    .review-count-row{display:grid;grid-template-columns:42px 1fr 42px;align-items:center;gap:8px;padding:8px 0;color:#aaa;font-size:13px}.review-count-row>b{text-align:center;color:#e8e5dc}.review-count-row span{display:flex;align-items:center;gap:10px}.review-count-row i{display:grid;place-items:center;width:23px;height:23px;flex:none;border-radius:50%;font-style:normal;font-weight:800;background:var(--review-color);color:#111;box-shadow:inset 0 1px #fff8,0 2px 4px #0008}.review-graph{width:100%;height:100px;margin-bottom:14px;border-radius:10px;background:#101410;box-shadow:inset 0 2px 7px #0008}.review-footnote{font-size:10px;line-height:1.5;color:#96968d;margin-top:14px}
     .workspace {display:grid;grid-template-columns:minmax(0,1fr);gap:24px;color:var(--ink);font-family:'Segoe UI',system-ui,sans-serif}
     .workspace.split {grid-template-columns:minmax(0,1fr)}
     .workspace.with-notes{grid-template-columns:minmax(0,1.9fr) minmax(245px,1fr);align-items:start;max-width:1180px;margin:auto;gap:22px}
     .analysis-notes[hidden]{display:none}
+    .notes-quality img{width:23px;height:23px;display:block}.quality img{width:100%;height:100%;display:block}
     .notes-clock{display:block;padding:0 10px 7px;font:500 11px/1.4 system-ui;color:#aaa69d;font-variant-numeric:tabular-nums}
     .analysis-notes{box-sizing:border-box;height:var(--analysis-board-height,60vh);min-height:0;margin-top:8px;display:flex;flex-direction:column;overflow:hidden;border:1px solid #3c3a35;border-radius:16px;background:linear-gradient(145deg,#242320,#171716);box-shadow:inset 0 1px #ffffff08,0 12px 30px #0003}
     .analysis-notes header{display:flex;justify-content:space-between;align-items:center;padding:18px 16px 14px;gap:8px}.analysis-notes h3{margin:4px 0 0;font:600 17px/1.3 system-ui;color:#f1eee7}.analysis-notes header small{font:600 9px system-ui;letter-spacing:2px;color:#b99a69}
@@ -85,7 +96,7 @@ _BOARD = st.components.v2.component(
     .turn-dot{width:10px;height:10px;border-radius:50%;background:#f4f0e5;border:1px solid #b8b6ae;box-shadow:0 1px 3px #0004}
     .turn-indicator[data-side="b"] .turn-dot{background:#242424;border-color:#949494}
     .arrows,.training-hint-layer {position:absolute;inset:4px;width:calc(100% - 8px);height:calc(100% - 8px);pointer-events:none;z-index:3}
-    .board {display:grid;grid-template-columns:repeat(8,1fr);width:100%;margin:auto;scroll-margin-top:80px;
+    .board {display:grid;grid-template-columns:repeat(8,minmax(0,1fr));grid-template-rows:repeat(8,minmax(0,1fr));width:100%;margin:auto;scroll-margin-top:80px;
       aspect-ratio:1; border:4px solid #344D3D;border-radius:5px;overflow:hidden;box-sizing:border-box}
     .square {position:relative; padding:0;border:0;border-radius:0;aspect-ratio:1;
       min-width:0;cursor:var(--club-cursor-link,pointer);touch-action:none;user-select:none}
@@ -94,6 +105,14 @@ _BOARD = st.components.v2.component(
     .board-coordinate{position:absolute;pointer-events:none;font:600 clamp(9px,1.2vw,13px)/1 sans-serif;z-index:2}
     .board-coordinate.rank{top:3px;left:3px}.board-coordinate.file{bottom:3px;right:3px}
     .light .board-coordinate{color:#574028}.dark .board-coordinate{color:#fff3dc}
+    .workspace.custom-board-colors .square.light{background:var(--board-light)}
+    .workspace.custom-board-colors .square.dark{background:var(--board-dark)}
+    .workspace.custom-board-colors .board{border-color:var(--board-edge)}
+    .workspace[data-finish="Plano"] .board{border-radius:0;box-shadow:none}
+    .workspace[data-finish="Relevo"] .square:after{content:"";position:absolute;inset:0;pointer-events:none;box-shadow:inset 0 1px 2px #fff3,inset 0 -2px 3px #0003}
+    .workspace[data-finish="Relevo"] .board{box-shadow:0 5px 0 #171e19,0 12px 24px #0005}
+    .workspace[data-finish="Madeira"] .square:after{content:"";position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(94deg,#fff0 0 7px,#fff1 8px,#00000008 9px,#fff0 12px);opacity:.55}
+    .workspace[data-finish="Madeira"] .board{border-width:6px;box-shadow:0 4px 0 #423024,0 9px 20px #0005}
     .square.last {box-shadow:inset 0 0 0 4px #B99350}
     .square.training-correct {box-shadow:inset 0 0 0 7px #16a34a}
     .square.training-wrong {box-shadow:inset 0 0 0 7px #ef4444}
@@ -139,6 +158,18 @@ _BOARD = st.components.v2.component(
     .move-quality span {font-size:21px;font-weight:800}.move-quality[hidden] {display:none}
     .status {font:13px var(--st-font);color:var(--st-text-color);margin:8px 0}
     .promotion button {padding:8px 16px;margin:4px;border-radius:5px;cursor:var(--club-cursor-link,pointer)}
+    .promotion:empty{display:none}.promotion{position:absolute;inset:0;z-index:30;display:grid;place-items:center;border-radius:5px;background:#050907bd;backdrop-filter:blur(3px)}
+    .promotion-dialog{position:relative;box-sizing:border-box;width:min(94%,390px);aspect-ratio:1;border:1px solid #ae8d5588;border-radius:24px;background:radial-gradient(ellipse at 50% 35%,#42412c,#20271d 55%,#101810);box-shadow:inset 0 1px #fff2,0 18px 55px #0009;animation:promotion-arrive .2s ease-out}
+    .promotion-dialog h3{position:absolute;inset:15px 10px auto;text-align:center;font:600 clamp(10px,2.8cqw,12px)/1.4 system-ui;color:#cdb98f;margin:0;letter-spacing:1px}
+    .promotion-orbit{position:absolute;inset:34px 12px 38px;touch-action:none;user-select:none;cursor:grab}.promotion-orbit.dragging{cursor:grabbing}
+    .promotion-orbit:before{content:'';position:absolute;inset:16%;border:1px solid #bda06c20;border-radius:50%;pointer-events:none}
+    .promotion .promotion-piece{box-sizing:border-box;position:absolute;left:50%;top:50%;margin:0;padding:10px;width:clamp(44px,18cqw,74px);height:clamp(44px,18cqw,74px);min-width:0;min-height:0;border:1px solid #dec48b77;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 28% 20%,#d5bd8c,#82704a 30%,#353725 70%,#151e13);box-shadow:inset -7px -9px 13px #0007,inset 1px 2px 4px #fff4,0 9px 14px #0005;transition:transform .22s cubic-bezier(.2,.7,.2,1),box-shadow .2s,border-color .2s;cursor:pointer}
+    .promotion-piece svg{display:block;width:100%;height:100%;filter:drop-shadow(0 2px 1px #0006);pointer-events:none}.promotion-piece .promotion-glyph{font:42px/1 Georgia;color:#f4e5c1;pointer-events:none}
+    .promotion .promotion-piece.active{border-color:#ffe5a2;box-shadow:inset -7px -9px 13px #0007,inset 1px 2px 4px #fff5,0 0 22px #d8b36740,0 9px 14px #0005}.promotion .promotion-piece:focus-visible{outline:2px solid #ffe1a0;outline-offset:4px}
+    .promotion-orbit.dragging .promotion-piece{transition:box-shadow .2s}
+    .promotion-center{position:absolute;left:50%;top:50%;width:36%;transform:translate(-50%,-50%);text-align:center;pointer-events:none}.promotion-center small{display:block;font:600 8px system-ui;letter-spacing:1.5px;color:#bda97d}.promotion-center strong{display:block;font:550 clamp(13px,4cqw,18px)/1.4 system-ui;color:#f5e8cd;margin:5px 0}.promotion-center span{display:block;font:9px/1.4 system-ui;color:#a1aa91}
+    .promotion .promotion-cancel{position:absolute;bottom:7px;left:50%;transform:translateX(-50%);min-width:0;min-height:26px;margin:0;padding:4px 10px;border:0;background:transparent;color:#b0b5a2;font:11px system-ui;border-radius:7px}.promotion .promotion-cancel:hover{background:#ffffff0b}
+    @keyframes promotion-arrive{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)}}
     nav {display:flex;align-items:center;justify-content:center;gap:8px;width:fit-content;max-width:100%;margin:12px auto 0;
       background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:6px;box-sizing:border-box}
     nav[hidden],.lesson[hidden] {display:none}
@@ -166,6 +197,15 @@ _BOARD = st.components.v2.component(
       filter:drop-shadow(0 10px 6px #0008);transform:scale(1.08)}
     .drag-ghost svg {width:100%;height:100%}
     @media (prefers-reduced-motion:reduce) {.drag-ghost {filter:none;transform:none}}
+
+    .analysis-notes,.lesson,.review-graph{background:linear-gradient(135deg,#06283e,#031327)!important;border-color:#17617b!important;border-radius:4px!important;color:#d9f5ff}
+    .analysis-notes button,.analysis-panel-tabs button,.notebook-modes button{color:#a2d8e5!important;border-radius:3px!important}
+    .analysis-panel-tabs button[aria-selected=true],.notes-move button[aria-current=true]{background:linear-gradient(100deg,#09465e,#06283e)!important;border-color:#18a2bb!important;color:#d5fcff!important}
+    .notebook-editor{background-color:#041d31!important;color:#d9f5ff!important;border-color:#18738b!important;border-radius:3px!important}
+    .notebook-actions .notebook-save{background:linear-gradient(100deg,#1ad5e4,#0a849e)!important;color:#001421!important}
+    .review-avatar,.review-player strong{background:#06283e!important;border-color:#149ab1!important;border-radius:4px!important;color:#9af4ff!important}
+    nav{background:#04192d!important;border:1px solid #165a74!important;border-radius:4px!important}nav button{background:#073149!important;color:#b1effa!important;border-radius:3px!important}nav button:focus-visible{outline-color:#ff9b4e!important}
+    .notes-colours,.notes-comment,.notes-number,.notes-inline-comment,.notebook-label,.notebook-position,.notebook-status{color:#8eb7cd!important}.notes-list{scrollbar-color:#1a758b transparent}
     """,
     js="""
     export default function render({data,parentElement,setTriggerValue,setStateValue}) {
@@ -232,6 +272,13 @@ _BOARD = st.components.v2.component(
         {surface:'#FFFEFA',ink:'#202B26',muted:'#626F66',border:'#D9DED5',soft:'#ECEFE8',accent:'#176B4A'});
       for(const [token,value] of Object.entries(theme))
         (parentElement.host ?? parentElement).style.setProperty('--'+token.replaceAll('_','-'),value);
+      const appearance=data.boardAppearance ?? {duration:200,colors:null,style:'Clássico'};
+      const workspace=parentElement.querySelector('.workspace');
+      workspace.dataset.finish=appearance.style;
+      workspace.classList.toggle('custom-board-colors',Boolean(appearance.colors));
+      for(const [i,name] of ['light','dark','edge'].entries())
+        workspace.style.setProperty('--board-'+name,appearance.colors?.[i] ?? '');
+      const moveDuration=window.matchMedia('(prefers-reduced-motion:reduce)').matches?0:appearance.duration;
       function paintTurn() {
         const side=data.editing && data.turnOverride ? data.turnOverride : data.fen.split(' ')[1];
         const indicator=parentElement.querySelector('.turn-indicator');
@@ -285,11 +332,19 @@ _BOARD = st.components.v2.component(
         panel.hidden=!enabled;root.classList.toggle('with-notes',enabled);
         if(!enabled){parentElement._notesObserver?.disconnect();parentElement._notesObserver=null;return;}
         if(!parentElement._notesObserver){
-          parentElement._notesObserver=new ResizeObserver(entries=>root.style.setProperty('--analysis-board-height',entries[0].target.getBoundingClientRect().height+'px'));
+          parentElement._notesObserver=new ResizeObserver(entries=>{
+            const height=Math.round(entries[0].target.getBoundingClientRect().height)+'px';
+            if(root.style.getPropertyValue('--analysis-board-height')!==height)root.style.setProperty('--analysis-board-height',height);
+          });
           parentElement._notesObserver.observe(parentElement.querySelector('.board'));
         }
+        if(data.analysisSummary&&!parentElement._summarySeen){parentElement._analysisPane='summary';parentElement._summarySeen=true;}
+        if(!data.analysisSummary)parentElement._summarySeen=false;
         paintNotebook();
-        const list=panel.querySelector('.notes-list'),oldScroll=list.scrollTop;list.replaceChildren();
+        const list=panel.querySelector('.notes-list'),oldScroll=list.scrollTop;
+        const notesKey=JSON.stringify(data.analysisNotes);
+        if(list._notesKey!==notesKey){
+        list._notesKey=notesKey;list.replaceChildren();
         panel.querySelector('.notes-start').onclick=()=>navigate(0);
         const rows=new Map();
         for(const note of data.analysisNotes){
@@ -297,26 +352,33 @@ _BOARD = st.components.v2.component(
           if(!row){row=document.createElement('div');row.className='notes-row';const number=document.createElement('span');number.className='notes-number';number.textContent=note.number+'.';row.append(number,document.createElement('div'),document.createElement('div'));rows.set(note.number,row);list.append(row);}
           const cell=row.children[note.side==='white'?1:2];cell.className='notes-move';
           const button=document.createElement('button');button.type='button';button.dataset.ply=note.ply;button.setAttribute('aria-current',String(note.ply===data.ply));button.setAttribute('aria-label',`${note.number}${note.side==='white'?'.':'...'} ${note.san}`);button.textContent=note.san;button.onclick=()=>navigate(note.ply);
-          if(note.symbol){const quality=document.createElement('span');quality.className='notes-quality';quality.textContent=note.symbol;quality.style.setProperty('--note-quality',note.color);quality.title=note.quality;button.append(quality);}
+          if(note.symbol){const quality=document.createElement('span');quality.className='notes-quality';if(note.icon){const image=document.createElement('img');image.src=note.icon;image.alt=note.symbol;quality.append(image);}else quality.textContent=note.symbol;quality.style.setProperty('--note-quality',note.color);quality.title=note.quality;button.append(quality);}
           cell.append(button);
           if(note.clock){const clock=document.createElement('small');clock.className='notes-clock';clock.textContent='◷ '+note.clock;clock.title='Tempo restante';cell.append(clock);}
           if(note.comment){const comment=document.createElement('p');comment.className='notes-inline-comment';comment.textContent=note.comment;cell.append(comment);}
         }
         if(!data.analysisNotes.length){const empty=document.createElement('p');empty.className='notes-empty';empty.textContent='Faça seu primeiro lance ou importe uma partida. As anotações aparecem aqui.';list.append(empty);}
         list.scrollTop=oldScroll;
+        }
+        for(const button of list.querySelectorAll('[data-ply]'))button.setAttribute('aria-current',String(Number(button.dataset.ply)===data.ply));
         const selected=list.querySelector('[aria-current=true]');
-        if(selected){const item=selected.parentElement.parentElement;const y=item.offsetTop-list.offsetTop;if(y<list.scrollTop || y+item.offsetHeight>list.scrollTop+list.clientHeight)list.scrollTop=Math.max(0,y-list.clientHeight/2);}
+        if(selected&&!panel.querySelector('.notes-pane').hidden){const item=selected.parentElement.parentElement;const y=item.offsetTop-list.offsetTop;if(y<list.scrollTop || y+item.offsetHeight>list.scrollTop+list.clientHeight)list.scrollTop=Math.max(0,y-list.clientHeight/2);}
         const current=data.analysisNotes.find(note=>note.ply===data.ply);
         panel.querySelector('.notes-comment').textContent=current?.comment || (current?.quality ? current.quality+' · '+current.san : 'Clique em um lance para acompanhar a posição.');
       }
       function paintNotebook(){
         const panel=parentElement.querySelector('.analysis-notes'),book=data.notebook;
         const tab=panel.querySelector('.notebook-tab');tab.hidden=!book;
+        const summary=panel.querySelector('.summary-pane'),summaryTab=panel.querySelector('.summary-tab');
+        const showSummary=Boolean(data.analysisSummary&&parentElement._analysisPane==='summary');
+        summaryTab.hidden=!data.analysisSummary;summary.hidden=!showSummary;
+        if(summary._html!==data.analysisSummary){summary.innerHTML=data.analysisSummary||'';summary._html=data.analysisSummary;}summaryTab.setAttribute('aria-selected',String(showSummary));
+        summaryTab.onclick=()=>{parentElement._analysisPane='summary';paintNotebook();};
         const open=Boolean(book&&parentElement._analysisPane==='notebook');
-        panel.classList.toggle('notebook-open',open);panel.querySelector('.notes-pane').hidden=open;panel.querySelector('.notebook-pane').hidden=!open;
-        panel.querySelector('.notes-tab').setAttribute('aria-selected',String(!open));tab.setAttribute('aria-selected',String(open));
+        panel.classList.toggle('notebook-open',open);panel.querySelector('.notes-pane').hidden=open||showSummary;panel.querySelector('.notebook-pane').hidden=!open;
+        panel.querySelector('.notes-tab').setAttribute('aria-selected',String(!open&&!showSummary));tab.setAttribute('aria-selected',String(open));
         panel.querySelector('.notes-tab').onclick=()=>{parentElement._analysisPane='notes';paintNotebook();};tab.onclick=()=>{parentElement._analysisPane='notebook';paintNotebook();};
-        if(!book)return;
+        if(!book||!open)return;
         const mode=parentElement._notebookMode||'position',position=mode==='general'?'general':data.fen.split(' ').slice(0,4).join(' ');
         const key=book.owner+'|'+book.id+'|'+position,drafts=parentElement._notebookDrafts ||= new Map();
         const entry=book.entries.find(row=>row.position===position),editor=panel.querySelector('.notebook-editor');
@@ -345,7 +407,7 @@ _BOARD = st.components.v2.component(
         };
       }
       function navigate(target) {
-        if(!data.navigation || drag || animating)return;
+        if(!data.navigation || drag || animating || parentElement.querySelector('.promotion').childElementCount)return;
         target=Math.max(0,Math.min(data.total,target));
         if(target===navigation.index)return;
         navigation.index=target;
@@ -413,6 +475,7 @@ _BOARD = st.components.v2.component(
         pendingEvent=null;parentElement._trainingPending=null;parentElement._editPending=null;
       }
       let selected=null, pending=Boolean(pendingEvent), drag=null, ghost=null, animating=false, suppressClick=false, disposed=false;
+      let promotionOpen=false,promotionMoves=[],promotionFrom=null,promotionToken=0,promotionObserver=null;
       let interaction=0;
       let pendingTimer=null;
       function waitForAck() {
@@ -442,7 +505,7 @@ _BOARD = st.components.v2.component(
         clearTimeout(navigation.timer);
         navigation.timer=null;
         clearArrows();
-        pending=true; promo.replaceChildren();
+        pending=true; closePromotion(false);
         if(data.trainingMode && data.trainingExpected){
           const correct=uci===data.trainingExpected;
           const target=buttons.get(uci.slice(2,4));
@@ -541,22 +604,91 @@ _BOARD = st.components.v2.component(
         waitForAck();
         return true;
       }
+      function closePromotion(restoreFocus=false){
+        const origin=promotionFrom;
+        promotionOpen=false;promotionMoves=[];promotionFrom=null;promotionToken++;
+        promotionObserver?.disconnect();promotionObserver=null;
+        promo.replaceChildren();promo.onkeydown=null;promo.onclick=null;
+        if(restoreFocus && !disposed){select(origin);buttons.get(origin)?.focus();}
+      }
+      function openPromotion(from,candidates){
+        closePromotion(false);promotionOpen=true;promotionMoves=candidates;promotionFrom=from;
+        const token=promotionToken,fen=data.fen,revision=data.revision;
+        const names={q:'Dama',r:'Torre',b:'Bispo',n:'Cavalo'};
+        const moves=['q','r','b','n'].map(piece=>candidates.find(move=>move[4]===piece)).filter(Boolean);
+        const dialog=document.createElement('div');dialog.className='promotion-dialog';dialog.setAttribute('role','dialog');dialog.setAttribute('aria-modal','true');dialog.setAttribute('aria-label','Escolha a peça da promoção');
+        const title=document.createElement('h3');title.textContent='Escolha a peça da promoção';
+        const orbit=document.createElement('div');orbit.className='promotion-orbit';orbit.setAttribute('aria-label','Roda de peças');
+        const center=document.createElement('div');center.className='promotion-center';center.innerHTML='<small>PROMOÇÃO</small><strong></strong><span>Arraste para girar<br>ou clique na peça</span>';
+        let offset=0,wheelPointer=null,originX=0,originOffset=0,wheelDragged=false;
+        function choose(move){
+          if(!promotionOpen || token!==promotionToken || data.fen!==fen || data.revision!==revision || !data.legal.includes(move))return;
+          emit(move);
+        }
+        const choices=moves.map(move=>{
+          const button=document.createElement('button');button.type='button';button.className='promotion-piece';button.dataset.piece=move[4];button.setAttribute('aria-label',names[move[4]]);button.title=names[move[4]];
+          const symbol=data.fen.split(' ')[1]==='w'?move[4].toUpperCase():move[4];
+          if(data.pieces?.[symbol])button.innerHTML=data.pieces[symbol];
+          else{const glyph=document.createElement('span');glyph.className='promotion-glyph';glyph.textContent=({Q:'♕',R:'♖',B:'♗',N:'♘',q:'♛',r:'♜',b:'♝',n:'♞'})[symbol];button.append(glyph);}
+          button.onclick=()=>{if(!wheelDragged)choose(move);};orbit.append(button);return button;
+        });
+        orbit.append(center);
+        function paintWheel(focus=false){
+          if(!promotionOpen || token!==promotionToken)return;
+          const index=((Math.round(offset)%choices.length)+choices.length)%choices.length;
+          const radius=Math.min(orbit.clientWidth,orbit.clientHeight)*.34;
+          choices.forEach((button,i)=>{const angle=((i-offset)*360/choices.length-90)*Math.PI/180;
+            button.style.transform=`translate(calc(-50% + ${Math.cos(angle)*radius}px),calc(-50% + ${Math.sin(angle)*radius}px))`;
+            button.classList.toggle('active',i===index);button.tabIndex=i===index?0:-1;
+          });
+          center.querySelector('strong').textContent=names[moves[index][4]];
+          if(focus)choices[index].focus();
+        }
+        orbit.onpointerdown=event=>{if(event.button!==0)return;event.stopPropagation();wheelPointer=event.pointerId;originX=event.clientX;originOffset=offset;wheelDragged=false;};
+        orbit.onpointermove=event=>{
+          if(wheelPointer!==event.pointerId)return;
+          const distance=event.clientX-originX;
+          if(Math.abs(distance)>6 && !wheelDragged){wheelDragged=true;orbit.setPointerCapture(event.pointerId);orbit.classList.add('dragging');}
+          if(wheelDragged){offset=originOffset-distance/Math.max(50,orbit.clientWidth*.4);paintWheel();}
+        };
+        function releaseWheel(event){
+          if(wheelPointer!==event.pointerId)return;wheelPointer=null;orbit.classList.remove('dragging');
+          if(orbit.hasPointerCapture(event.pointerId))orbit.releasePointerCapture(event.pointerId);
+          offset=Math.round(offset);paintWheel(wheelDragged);setTimeout(()=>{wheelDragged=false;},0);
+        }
+        orbit.onpointerup=releaseWheel;orbit.onpointercancel=releaseWheel;
+        const cancel=document.createElement('button');cancel.type='button';cancel.className='promotion-cancel';cancel.textContent='Cancelar · Esc';cancel.onclick=()=>closePromotion(true);
+        dialog.append(title,orbit,cancel);promo.append(dialog);
+        promo.onclick=event=>{if(event.target===promo)closePromotion(true);};
+        promo.onkeydown=event=>{
+          if(event.key==='Escape'){event.preventDefault();event.stopPropagation();closePromotion(true);return;}
+          if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(event.key)){
+            event.preventDefault();event.stopPropagation();offset=Math.round(offset)+(['ArrowRight','ArrowDown'].includes(event.key)?1:-1);paintWheel(true);return;
+          }
+          if(event.key==='Tab'){
+            event.preventDefault();event.stopPropagation();
+            const order=[...choices,cancel],focused=event.composedPath().find(node=>order.includes(node));
+            const target=(order.indexOf(focused)+(event.shiftKey?-1:1)+order.length)%order.length;order[target].focus();return;
+          }
+          if(event.key==='Enter' && event.target!==cancel){
+            event.preventDefault();event.stopPropagation();
+            const button=event.composedPath().find(node=>choices.includes(node));
+            choose(moves[button?choices.indexOf(button):((Math.round(offset)%moves.length)+moves.length)%moves.length]);
+          }
+        };
+        promotionObserver=new ResizeObserver(()=>paintWheel());promotionObserver.observe(orbit);
+        if(ghost)ghost.style.visibility='hidden';buttons.get(from)?.classList.remove('dragging');
+        paintWheel(true);
+      }
       function attempt(from,to) {
+        if(promotionOpen)return false;
         if(data.editing){
           return emitEdit({from,to});
         }
         const candidates=data.legal.filter(m=>m.slice(0,2)===from && m.slice(2,4)===to);
         if(!candidates.length)return false;
         if(candidates.length===1)emit(candidates[0]);
-        else {
-          promo.replaceChildren();
-          for(const m of candidates) {
-            const button=document.createElement('button');
-            button.textContent=({q:'Dama',r:'Torre',b:'Bispo',n:'Cavalo'})[m[4]];
-            button.onclick=()=>emit(m);promo.append(button);
-          }
-          promo.firstChild?.focus();
-        }
+        else openPromotion(from,candidates);
         return true;
       }
       for(const cell of data.cells) {
@@ -586,7 +718,7 @@ _BOARD = st.components.v2.component(
           parentElement._lastTrainingClick={square:cell.name,revision:data.revision,selected,pending,animating,suppressClick};
           if(suppressClick){suppressClick=false;return;}
           if(!data.editing){
-            if(pending || animating || data.disabled)return;
+            if(pending || animating || promotionOpen || data.disabled)return;
             if(selected && selected!==cell.name){
               if(attempt(selected,cell.name)){select(null);return;}
             }
@@ -600,6 +732,7 @@ _BOARD = st.components.v2.component(
           }
         };
         button.onpointerdown=e=>{
+          if(promotionOpen)return;
           parentElement._lastTrainingPointer={square:cell.name,revision:data.revision,x:e.clientX,y:e.clientY,pending,animating};
           if(e.button===2){
             e.preventDefault();
@@ -657,7 +790,7 @@ _BOARD = st.components.v2.component(
             await movingGhost.animate([
               {transform:'translate(0,0) scale(1.08)'},
               {transform:`translate(${destination.x-from.x}px,${destination.y-from.y}px) scale(1)`}
-            ],{duration:reduced ? 0 : 110,easing:'ease-out',fill:'forwards'}).finished;
+            ],{duration:reduced ? 0 : moveDuration,easing:'ease-out',fill:'forwards'}).finished;
           } catch {
             // Cancelling a visual transition must still release pointer state.
           } finally {
@@ -679,18 +812,19 @@ _BOARD = st.components.v2.component(
         paintTurn();
         grid.dataset.fen=data.fen;
         const previous=[...buttons.values()].map(button=>({button,svg:button._pieceSvg}));
+        const nextPieces=new Map(data.cells.map(cell=>[cell.name,cell.svg || data.pieces?.[cell.piece] || '']));
         for(const cell of data.cells) {
           const button=buttons.get(cell.name),svg=cell.svg || data.pieces?.[cell.piece] || '';
           if(button._pieceSvg!==svg){
             const sources=previous.filter(item=>item.svg===svg && item.button!==button &&
-              item.svg!==(data.cells.find(c=>c.name===item.button.dataset.square)?.svg || data.pieces?.[data.cells.find(c=>c.name===item.button.dataset.square)?.piece] || ''));
+              item.svg!==nextPieces.get(item.button.dataset.square));
             button.querySelectorAll(':scope > svg').forEach(piece=>piece.remove());
             if(svg)button.insertAdjacentHTML('afterbegin',svg);
             const alreadyDragged=skipMove && sources.length===1 && sources[0].button.dataset.square===skipMove.slice(0,2) && cell.name===skipMove.slice(2,4);
             if(svg && sources.length===1 && !alreadyDragged && !ghost && !data.animateMove && !matchMedia('(prefers-reduced-motion: reduce)').matches){
               const a=sources[0].button.getBoundingClientRect(),b=button.getBoundingClientRect();
               const piece=button.querySelector(':scope > svg');button.style.zIndex='2';
-              piece?.animate([{transform:`translate(${a.x-b.x}px,${a.y-b.y}px)`},{transform:'translate(0,0)'}],{duration:160,easing:'cubic-bezier(.2,.65,.3,1)'}).finished.catch(()=>{}).finally(()=>{if(button.querySelector(':scope > svg')===piece)button.style.zIndex='';});
+              piece?.animate([{transform:`translate(${a.x-b.x}px,${a.y-b.y}px)`},{transform:'translate(0,0)'}],{duration:moveDuration,easing:'cubic-bezier(.2,.65,.3,1)'}).finished.catch(()=>{}).finally(()=>{if(button.querySelector(':scope > svg')===piece)button.style.zIndex='';});
             }
             button._pieceSvg=svg;
           }
@@ -768,7 +902,7 @@ _BOARD = st.components.v2.component(
         quality.hidden=!data.badge;
         if(data.badge){
           quality.style.background=data.badge.color;quality.style.color=data.badge.ink;
-          quality.querySelector('span').textContent=data.badge.symbol;
+          quality.querySelector('span').innerHTML=data.badge.icon?'<img src="'+data.badge.icon+'" alt="">':data.badge.symbol;
           quality.querySelector('strong').textContent=data.badge.label;
           quality.title=data.badge.description || data.badge.label;
         }
@@ -780,7 +914,7 @@ _BOARD = st.components.v2.component(
           button.classList.toggle('special-white',aura && data.badge.side==='white');
           button.classList.toggle('special-black',aura && data.badge.side==='black');
           if(data.badge && name===data.badge.square) {
-            const badge=document.createElement('span');badge.className='quality';badge.textContent=data.badge.symbol;
+            const badge=document.createElement('span');badge.className='quality';badge.innerHTML=data.badge.icon?'<img src="'+data.badge.icon+'" alt="">':data.badge.symbol;
             badge.style.background=data.badge.color;badge.style.color=data.badge.ink;
             badge.title=data.badge.label;badge.setAttribute('aria-label',data.badge.label);button.append(badge);
           }
@@ -802,7 +936,7 @@ _BOARD = st.components.v2.component(
           const a=origin.getBoundingClientRect(),b=destination.getBoundingClientRect();
           destination.style.zIndex='2';
           await piece.animate([{transform:`translate(${a.x-b.x}px,${a.y-b.y}px)`},{transform:'translate(0,0)'}],
-            {duration:reduced?0:260,easing:'cubic-bezier(.2,.65,.3,1)'}).finished.catch(()=>{});
+            {duration:reduced?0:moveDuration,easing:'cubic-bezier(.2,.65,.3,1)'}).finished.catch(()=>{});
           destination.style.zIndex='';
         }
         animating=true;
@@ -817,6 +951,7 @@ _BOARD = st.components.v2.component(
       }
       animatePosition();
       function keyboard(event) {
+        if(promotionOpen||disposed||!parentElement.isConnected)return;
         if(!data.navigation || event.defaultPrevented)return;
         const workspace=(parentElement.host ?? parentElement).closest('.st-key-reading_workspace');
         if(workspace && workspace.dataset.keyboardArea!=='board')return;
@@ -827,6 +962,7 @@ _BOARD = st.components.v2.component(
                      event.key==='Home' ? 0 : event.key==='End' ? data.total : null;
         if(target===null)return;
         event.preventDefault();
+        if(event.repeat)return;
         if(target<0 || target>data.total || target===data.ply)return;
         navigate(target);
       }
@@ -843,7 +979,9 @@ _BOARD = st.components.v2.component(
         document.removeEventListener('keydown',keyboard);
         document.removeEventListener('click',externalSync);
       };
-      const cleanup=()=>{disposed=true;detach();clearTimeout(pendingTimer);clearTimeout(parentElement._quizTimer);ghost?.remove();};
+      const removalObserver=new MutationObserver(()=>{if(!parentElement.isConnected)cleanup();});
+      removalObserver.observe(document.body,{childList:true,subtree:true});
+      const cleanup=()=>{disposed=true;removalObserver.disconnect();detach();closePromotion(false);clearTimeout(pendingTimer);clearTimeout(parentElement._quizTimer);ghost?.remove();};
       parentElement._acervoState={signature,keyboard,externalSync,detach,cleanup,
         status:()=>({pending,animating,suppressClick,disposed,gridConnected:grid.isConnected,
           connectedButtons:[...buttons.values()].filter(button=>button.isConnected).length,
@@ -855,10 +993,11 @@ _BOARD = st.components.v2.component(
         // Those handlers must use the current navigation epoch as well.
         navigation=parentElement._navigation ?? navigation;
         const changedPosition=data.fen!==next.fen || data.ply!==next.ply || data.revision!==next.revision;
+        const invalidPromotion=promotionOpen && (next.disabled || promotionMoves.some(move=>!next.legal.includes(move)));
         data=next;setTriggerValue=trigger;setStateValue=stateValue;
-        if(changedPosition){
+        if(changedPosition || invalidPromotion){
           interaction++;
-          clearArrows();promo.replaceChildren();select(null);pending=false;pendingEvent=null;
+          clearArrows();closePromotion(false);select(null);pending=false;pendingEvent=null;
           parentElement._trainingPending=null;parentElement._editPending=null;drag=null;arrowDrag=null;animating=false;suppressClick=false;
           clearTimeout(pendingTimer);
           ghost?.remove();ghost=null;
@@ -933,6 +1072,7 @@ def annotation_rows(pgn, reviews=None):
         comment=re.sub(r'\[\%[^\]]*\]', '', node.comment).strip()
         rows.append(dict(ply=ply, number=board.fullmove_number, side='white' if board.turn else 'black',
                          san=board.san(node.move), comment=comment, clock=clock_text,
+                         icon=__import__('quality_icons').category_icon(category) if category else None,
                          symbol=category.symbol if category else nag, quality=category.label if category else 'Anotação do PGN' if nag else '',
                          color=category.color if category else ''))
         board.push(node.move)
@@ -943,7 +1083,8 @@ def quality_badge(category, square, side):
     if category is None or square is None:
         return None
     key = next((key for key, item in CATEGORIES.items() if item == category), None)
-    return {'square': square, 'symbol': category.symbol, 'label': category.label,
+    from quality_icons import category_icon
+    return {'square': square, 'icon':category_icon(category), 'symbol': category.symbol, 'label': category.label,
             'color': category.color, 'ink': category.ink, 'description': category.description,
             'special': key in SPECIAL_CATEGORIES, 'side': side}
 
@@ -969,7 +1110,8 @@ def interactive_board(board, *, flip=False, last_move=None, category=None, on_mo
                       on_sync=None, quiz=None, training_line=None, instant=False, instant_moves=False,
                       turn_override=None, aligned=False, stable_board=False, analysis_notes=False,
                       evaluation_bar=False, evaluation_reviews=None, position_evaluation=None,training_preview=None,
-                      notebook=None,on_note=None):
+                      notebook=None,on_note=None,analysis_summary=None):
+    from board_settings import current as board_appearance
     badge = quality_badge(category, chess.square_name(last_move.to_square) if last_move else None,
                           'black' if board.turn else 'white')
     frames = game_frames(pgn, flip) if pgn is not None else None
@@ -993,7 +1135,7 @@ def interactive_board(board, *, flip=False, last_move=None, category=None, on_mo
                         "evaluation": {'cp':score.white_cp,'mate':score.white_mate} if score else position_evaluation,
                         "turnOverride": ('w' if turn_override else 'b') if turn_override is not None else None,
                         "frames": frames, "pieces": piece_images(), "epoch": epoch, "navigation_ack": navigation_ack,
-                        "analysisNotes": annotation_rows(pgn, reviews) if analysis_notes else None,"notebook":notebook,
+                        "analysisNotes": annotation_rows(pgn, reviews) if analysis_notes else None,"notebook":notebook,"analysisSummary":analysis_summary,
                         "movePreviews": legal_move_previews(board.fen()) if instant_moves and not disabled else None,
                         "previewFen": board.fen() if instant_moves else None,
                         "explanations": explanations, "study": study, "dark": dark, "theme": palette(dark), "mascot": mascot,
@@ -1006,6 +1148,6 @@ def interactive_board(board, *, flip=False, last_move=None, category=None, on_mo
                         "trainingLine": training_line, "instant": instant,
                         "syncRecovery": on_sync is not None,
                         "showCoordinates": show_coordinates,
-                        "animateMove": animate_move}, key=key,
+                        "boardAppearance": board_appearance(), "animateMove": animate_move}, key=key,
                   on_move_change=on_move, on_note_change=on_note or (lambda:None),on_navigate_change=on_navigate or (lambda: None),
                   on_edit_change=on_edit or (lambda: None), on_sync_change=on_sync or (lambda: None))

@@ -1,6 +1,7 @@
 """Opening shelves and searchable catalogue matching the supplied reference."""
 import chess
 import chess.svg
+from concurrent.futures import ThreadPoolExecutor
 import streamlit as st
 from opening_course_state import opening_rankings
 from opening_repertoires import catalog
@@ -20,6 +21,9 @@ _HOME = st.components.v2.component(
     @media(max-width:500px){header strong{font-size:29px}header nav{gap:20px}.card{min-width:205px;padding:24px 14px 14px}.rail{gap:18px}.card strong{font-size:17px}.grid{gap:36px 14px}.grid .card{padding:20px 10px 12px;min-width:0}.grid .card strong{font-size:15px;min-height:48px}.search-row{gap:10px}.search-row input{font-size:18px;padding:14px}.cancel{font-size:14px}.filters button{font-size:16px}.check{width:35px;height:35px;line-height:35px;font-size:29px}.shelf-head button{font-size:12px}}
     header{padding:18px 22px;border:1px solid #2a3035;border-radius:24px;background:radial-gradient(ellipse at top right,#24251e,#15191c 65%);margin-bottom:22px}header strong{font-size:30px}header strong b{font-size:11px;border:1px solid #806121;background:#362c15;color:#f4c66b;border-radius:20px;padding:4px 8px}header nav{gap:12px;align-items:center}header button{width:46px;height:48px;border-radius:15px;background:#21272b;display:flex;align-items:center;justify-content:center;gap:5px}header button[data-action=streak]{width:78px;color:#ffbb64;font-weight:700}header button svg{width:25px;height:34px}header button:hover{background:#303a40}.card:hover{transform:translateY(-4px);border-color:#806132;box-shadow:0 12px 24px #0004}.card{transition:transform .2s,border-color .2s}.shelf-head h2{font-weight:650;font-size:23px}@media(max-width:500px){header{padding:14px 12px;border-radius:18px}header strong{font-size:21px}header strong b{font-size:9px;margin-left:2px}header nav{gap:6px}header button{width:34px;height:40px}header button[data-action=streak]{width:56px;font-size:13px}header button svg{width:20px;height:27px}.card{min-width:170px;border-radius:20px}.shelf-head h2{font-size:20px}.rail{gap:12px}.grid{gap:28px 12px}}
     @media(prefers-reduced-motion:reduce){.card{transition:none}}
+
+    .home header,.home .card{background:linear-gradient(140deg,#073149,#031327)!important;border:1px solid #176f88!important;border-radius:5px!important;box-shadow:inset 0 1px #2deafa15,0 9px 22px #0003!important}
+    .home header{border-top:2px solid #ff8737!important}.home .card:hover{border-color:#27d8e7!important}.home .card strong,.home .shelf-head h2{color:#bff7ff!important;font-family:Bahnschrift,'Segoe UI',sans-serif}.home header strong b{background:#0a4057!important;color:#6de5ef!important;border-color:#18829a!important}.home .filters,.home .search-row input,.home header button{background:#06283e!important;border-radius:4px!important;color:#9de8f4!important}.home .filters button[aria-pressed=true]{background:#09506a!important;color:#e2fbff!important}
     ''',
     js='''export default function({data,parentElement,setTriggerValue}){
       const root=parentElement.querySelector('.home');let pending=false;
@@ -66,8 +70,31 @@ def reference_cards():
     return result
 
 
+@st.cache_resource
+def reference_cards_job():
+    """Build the offline catalogue outside the UI thread, once per server."""
+    pool=ThreadPoolExecutor(max_workers=1,thread_name_prefix='opening-catalog')
+    job=pool.submit(reference_cards)
+    pool.shutdown(wait=False)
+    return job
+
+
 def opening_home(plan,on_select,allowed_ids=None):
+    job=reference_cards_job()
+    if not job.done():
+        @st.fragment(run_every=.3)
+        def ready():
+            if job.done():st.rerun()
+            st.caption('Preparando os cursos em segundo plano… Você já pode usar as outras abas.')
+        ready()
+        return
+    try:prepared=job.result()
+    except Exception:
+        st.error('Não foi possível preparar os cursos locais.')
+        if st.button('Tentar novamente',key='retry_opening_catalog'):
+            reference_cards_job.clear();st.rerun()
+        return
     ranking={row['id']:row for row in opening_rankings(plan)}
     cards=[dict(c,learned=ranking[c['id']]['learned'],featured=True if allowed_ids is not None else c['featured'])
-           for c in reference_cards() if allowed_ids is None or c['id'] in allowed_ids]
+           for c in prepared if allowed_ids is None or c['id'] in allowed_ids]
     _HOME(data=dict(courses=cards,flame=flame(st.session_state.get('login_streak',streak(plan))),streak=st.session_state.get('login_streak',streak(plan)),badge=badge()),key='openings_home',on_select_change=on_select)

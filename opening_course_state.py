@@ -141,12 +141,14 @@ def active_session(plan):
         lesson=lines_for(plan).get(session['line_id'])
         if lesson and lesson.get('needs_preparation'):
             return None
-        if lesson and lesson.get('stage') and session.get('mode')=='quiz' and session.get('quiz_policy')!=2:
+        if lesson and lesson.get('stage') and session.get('mode')=='quiz' and session.get('quiz_policy') not in (2,3):
             from opening_training_state import _start_quiz
             _start_quiz(plan,session)
             session['revision']+=1
         from opening_repetition import ensure_quiz_states
         ensure_quiz_states(plan, session)
+        from opening_error_review import migrate
+        migrate(plan, session)
     return session
 
 

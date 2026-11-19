@@ -3,9 +3,17 @@ from contextlib import contextmanager
 from pathlib import Path
 import os
 import sqlite3
+import time
 from preparation_state import today
 
-RANKS=((0,'Bronze'),(200,'Prata'),(600,'Ouro'),(1500,'Platina'),(3000,'Diamante'),(6000,'Mestre'))
+RANK_TIERS=((0,'Bronze'),(200,'Prata'),(600,'Ouro'),(1500,'Platina'),(3000,'Diamante'),(6000,'Mestre'))
+# Preserve existing XP and tier thresholds; each tier now has five divisions.
+RANKS=tuple((floor+(level-1)*(ceiling-floor)//5,f'{title} {level}')
+    for index,(floor,title) in enumerate(RANK_TIERS)
+    for ceiling in [RANK_TIERS[index+1][0] if index+1<len(RANK_TIERS) else 12000]
+    for level in range(1,6))
+NEW_CLEAN_XP=5
+NEW_ASSISTED_XP=1
 
 
 @contextmanager
@@ -17,6 +25,8 @@ def database():
         db.execute('''CREATE TABLE IF NOT EXISTS attempts(owner TEXT,event TEXT,puzzle TEXT,theme TEXT,
             day TEXT,correct INTEGER,solved INTEGER,seconds REAL,points INTEGER,PRIMARY KEY(owner,event))''')
         db.execute('CREATE INDEX IF NOT EXISTS tactics_completed ON attempts(owner,puzzle,solved)')
+        db.execute('''CREATE TABLE IF NOT EXISTS rank_resets(owner TEXT,request TEXT,created REAL,
+            previous_points INTEGER,PRIMARY KEY(owner,request))''')
         yield db
         db.commit()
     finally: db.close()
@@ -28,9 +38,21 @@ def record(owner,event,puzzle,theme,correct,solved,seconds=0,clean=True):
         db.execute('BEGIN IMMEDIATE')
         if db.execute('SELECT 1 FROM attempts WHERE owner=? AND event=?',(owner,event)).fetchone(): return 0
         previous=db.execute('SELECT 1 FROM attempts WHERE owner=? AND puzzle=? AND solved=1 LIMIT 1',(owner,puzzle)).fetchone()
-        points=(30 if clean else 20) if solved and not previous else 5 if solved else 0
+        points=(NEW_CLEAN_XP if clean else NEW_ASSISTED_XP) if solved and not previous else 0
         db.execute('INSERT INTO attempts VALUES(?,?,?,?,?,?,?,?,?)',(owner,event,puzzle,theme,str(today()),int(correct),int(solved),max(0,seconds) if solved else 0,points))
         return points
+
+
+def reset_rank(owner,request):
+    """Explicit local maintenance: reset XP only, keeping all training history."""
+    if not owner or not request:raise ValueError('Conta e identificação da solicitação são obrigatórias.')
+    with database() as db:
+        db.execute('BEGIN IMMEDIATE')
+        if db.execute('SELECT 1 FROM rank_resets WHERE owner=? AND request=?',(owner,request)).fetchone():return False
+        previous=db.execute('SELECT COALESCE(SUM(points),0) FROM attempts WHERE owner=?',(owner,)).fetchone()[0]
+        db.execute('UPDATE attempts SET points=0 WHERE owner=?',(owner,))
+        db.execute('INSERT INTO rank_resets VALUES(?,?,?,?)',(owner,request,time.time(),previous))
+        return True
 
 
 def summary(owner,theme='mix',session=None):

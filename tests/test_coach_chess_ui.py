@@ -65,9 +65,9 @@ def test_dark_theme_two_routes_and_monochrome_logo(browser_page,coach_server,tmp
     page.locator('.st-key-sidebar_navigation a').filter(has_text='Análise').click()
     expect(page.get_by_role('heading',name='Análise de partidas',exact=True)).to_be_visible()
     navigation=page.locator('.st-key-sidebar_navigation a')
-    expect(navigation).to_have_count(5)
-    assert [a.inner_text().splitlines()[-1] for a in navigation.all()]==['Partida','Análise','Táticos','Estudo com livros','Aberturas']
-    assert page.locator('.stApp').evaluate('(e)=>getComputedStyle(e).backgroundColor')=='rgb(10, 10, 10)'
+    expect(navigation).to_have_count(4)
+    assert [a.inner_text().splitlines()[-1] for a in navigation.all()]==['Partida','Análise','Estudo com livros','Aberturas']
+    assert page.locator('.stApp').evaluate('(e)=>getComputedStyle(e).backgroundColor')=='rgb(2, 13, 32)'
     expect(page.locator('.club-brand')).to_contain_text('Coach Chess')
     logo=page.locator('.club-brand img')
     assert logo.evaluate('(e)=>e.complete && e.naturalWidth>0')
@@ -76,9 +76,9 @@ def test_dark_theme_two_routes_and_monochrome_logo(browser_page,coach_server,tmp
     page.screenshot(path=str(ROOT/'tests/artifacts/coach-analysis-desktop.png'),full_page=True)
     navigation.filter(has_text='Aberturas').click()
     expect(page.locator('.home header strong')).to_contain_text('Coach Chess')
-    expect(page.locator('.st-key-sidebar_navigation a')).to_have_count(5)
+    expect(page.locator('.st-key-sidebar_navigation a')).to_have_count(4)
     expect(page.locator('[data-testid=stSidebar]')).to_be_visible()
-    assert page.locator('.stApp').evaluate('(e)=>getComputedStyle(e).backgroundColor')=='rgb(10, 10, 10)'
+    assert page.locator('.stApp').evaluate('(e)=>getComputedStyle(e).backgroundColor')=='rgb(2, 13, 32)'
     page.screenshot(path=str(ROOT/'tests/artifacts/coach-openings-desktop.png'),full_page=True)
     assert page.locator('[data-testid=stException]').count()==0
 

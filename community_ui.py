@@ -1,5 +1,7 @@
 """Responsive classroom lounge, conversations and live lessons."""
 from datetime import datetime
+from hashlib import sha256
+from html import escape
 from pathlib import Path
 import os
 import json
@@ -76,22 +78,46 @@ def live_stage(token,room):
         st.session_state.pop('live_peer_'+call['id'],None);st.caption('Aula encerrada.')
 
 
+def _recording_keys(token,room):
+    scope=sha256((token+':'+str(room)).encode()).hexdigest()[:16]
+    return 'recording_selected_'+scope,'recording_source_'+scope
+
+
+def clear_recording(token,room):
+    for key in _recording_keys(token,room):st.session_state.pop(key,None)
+
+
+def lesson_style():
+    st.html("""<style>
+    .st-key-prep_live_controls{padding:18px 20px!important;border:1px solid #3a4c414f!important;border-radius:16px!important;background:linear-gradient(120deg,#17241f,#121a1d)!important;box-shadow:inset 0 1px #ffffff09,0 8px 24px #0003}
+    .lesson-live-summary{display:flex;align-items:center;gap:14px}.lesson-live-symbol,.recording-symbol{display:grid;place-items:center;flex:none;width:42px;height:42px;border-radius:13px;background:#263c30;border:1px solid #9bb18b32}.lesson-live-summary h3{margin:0 0 5px!important;padding:0!important;font:600 18px system-ui!important}.lesson-live-summary p{margin:0;color:#9aada2;font:12px/1.5 system-ui}
+    .recordings-heading{display:flex;align-items:center;gap:10px;margin:6px 0 10px;font:12px system-ui;color:#96a99e}
+    [class*=st-key-recording_row_]{padding:12px 15px!important;border:1px solid #718a702c!important;border-radius:13px!important;background:linear-gradient(110deg,#1b2420,#141a18)!important;box-shadow:inset 0 1px #fff07,0 4px 12px #0002;transition:transform .18s,border-color .18s}
+    [class*=st-key-recording_row_]:hover{transform:translateY(-1px);border-color:#a5b88d66!important}
+    .recording-info{display:flex;align-items:center;gap:12px;min-width:0}.recording-info strong{display:block;font:600 15px/1.4 system-ui;color:#e8eddf;overflow-wrap:anywhere}.recording-info small{display:block;margin-top:5px;font:11px system-ui;color:#90a197}.recording-symbol{width:36px;height:36px;border-radius:10px;background:#25372b}.recording-symbol img{width:18px;height:18px}
+    .st-key-recording_player{margin-top:8px;padding:18px!important;border-radius:16px!important;border:1px solid #ab945750!important;background:#101713!important;box-shadow:inset 0 1px #fff08,0 12px 30px #0003}.st-key-recording_player video{width:100%;max-height:65vh;border-radius:12px;background:#050805}.recording-player-empty{display:flex;align-items:center;justify-content:center;gap:12px;padding:24px 16px;color:#92a495;font:12px system-ui;border:1px dashed #56694c60;border-radius:12px}.recording-player-empty img{opacity:.7;width:20px;height:20px}
+    @media(max-width:600px){.st-key-prep_live_controls{padding:14px!important}.recording-info strong{font-size:14px}[class*=st-key-recording_row_] [data-testid=stHorizontalBlock]{flex-wrap:nowrap!important}[class*=st-key-recording_row_] [data-testid=stColumn]{min-width:0!important}[class*=st-key-recording_row_] [data-testid=stColumn]:first-child{flex:1 1 auto!important}[class*=st-key-recording_row_] [data-testid=stColumn]:nth-child(2){flex:0 0 82px!important}[class*=st-key-recording_row_] [data-testid=stColumn]:nth-child(3){flex:0 0 40px!important}[class*=st-key-recording_row_]{padding:10px!important}.st-key-recording_player{padding:12px!important}}
+    @media(prefers-reduced-motion:reduce){[class*=st-key-recording_row_]{transition:none}}
+    </style>""")
+
+
 def lesson_room(token,room,teacher=False):
-    apply_design()
+    apply_design();lesson_style()
     st.subheader('Sala de aula')
     call=community.live(token,room)
-    with st.container(border=True,key='prep_live_controls'):
-        intro,actions=st.columns([2.2,1],vertical_alignment='center')
+    with st.container(key='prep_live_controls'):
+        intro,actions=st.columns([1.5,1],vertical_alignment='center')
         with intro:
-            st.html('<div class="prep-live-cover"><div><span class="prep-eyebrow">ENCONTRO AO VIVO</span><h3>A turma mais perto.</h3><p>'+('Transmita sua aula e converse com os alunos em tempo real.' if teacher else 'Entre na transmissão quando o Professor iniciar a aula.')+'</p></div><span>'+icon('video')+'</span></div>')
+            st.html('<div class="lesson-live-summary"><span class="lesson-live-symbol">'+icon('video')+'</span><div><h3>Aula ao vivo</h3><p>'+('Transmissão em andamento' if call else 'Inicie um encontro com sua turma.' if teacher else 'Aguarde o Professor iniciar a transmissão.')+'</p></div></div>')
         with actions:
+            start,refresh=st.columns([1.7,1],vertical_alignment='center')
             if teacher:
                 if not call:
-                    if st.button('Iniciar aula ao vivo',icon=':material/videocam:',type='primary',width='stretch'):
+                    if start.button('Iniciar aula ao vivo',icon=':material/videocam:',type='primary',width='stretch'):
                         community.start_live(token,room=room);st.rerun()
-                elif st.button('Encerrar aula para todos',type='primary',width='stretch'):
+                elif start.button('Encerrar aula para todos',type='primary',width='stretch'):
                     community.end_live(token,room);st.rerun()
-            if st.button('Atualizar aulas',icon=':material/refresh:',key='refresh_lessons_'+room,width='stretch'):st.rerun()
+            if refresh.button('Atualizar aulas',icon=':material/refresh:',key='refresh_lessons_'+room,width='stretch'):st.rerun()
     live_stage(token,room)
     if call:
         with st.expander('Conversa durante a aula',expanded=True):
@@ -99,35 +125,83 @@ def lesson_room(token,room,teacher=False):
     library,publish=st.columns([2.5,1],vertical_alignment='center')
     library.subheader('Vídeos gravados')
     if teacher:
-        with publish.popover('Publicar vídeo',icon=':material/add:',width='stretch'):
-            with st.form('publish_video_'+room,clear_on_submit=True):
-                title=st.text_input('Título da aula',max_chars=150)
-                url=st.text_input('Link do vídeo',placeholder='https://…')
-                upload=st.file_uploader('Ou envie um vídeo (até 100 MB)',type=['mp4','webm','mov'])
-                if st.form_submit_button('Publicar',type='primary',width='stretch'):
-                    try:
-                        mime={'mp4':'video/mp4','webm':'video/webm','mov':'video/quicktime'}.get(upload.name.rsplit('.',1)[-1].lower(),'') if upload else ''
-                        community.publish_video(token,title,url,upload.getvalue() if upload else None,mime,room);st.rerun()
-                    except ValueError as e:st.error(str(e))
+        drawer_key='publish_drawer_'+room
+        if st.session_state.pop('recording_close_publish_'+room,False):st.session_state[drawer_key]=False
+        drawer=publish.popover('Publicar vídeo',icon=':material/add:',width='stretch',key=drawer_key,on_change='rerun')
+        with drawer:
+            if drawer.open:
+                with st.form('publish_video_'+room,clear_on_submit=True):
+                    title=st.text_input('Título da aula',max_chars=150)
+                    url=st.text_input('Link do vídeo',placeholder='https://…')
+                    upload=st.file_uploader('Ou envie um vídeo (até 100 MB)',type=['mp4','webm','mov'],max_upload_size=100)
+                    if st.form_submit_button('Publicar',type='primary',width='stretch'):
+                        try:
+                            mime={'mp4':'video/mp4','webm':'video/webm','mov':'video/quicktime'}.get(upload.name.rsplit('.',1)[-1].lower(),'') if upload else ''
+                            # getbuffer avoids a second full-size copy of the upload.
+                            with st.spinner('Salvando aula…'):
+                                community.publish_video(token,title,url,upload.getbuffer() if upload else None,mime,room)
+                            clear_recording(token,room)
+                            st.session_state['recording_published_'+room]=True
+                            st.session_state['recording_close_publish_'+room]=True
+                            st.rerun()
+                        except ValueError as e:st.error(str(e))
+    if st.session_state.pop('recording_published_'+room,False):st.success('Aula salva. Clique em Assistir quando quiser abrir o vídeo.')
     recorded_videos(token,room,teacher)
 
 
+@st.fragment
 def recorded_videos(token,room=None,teacher=False):
-    apply_design()
-    lessons=community.videos(token,room)
+    apply_design();lesson_style()
+    selected_key,source_key=_recording_keys(token,room)
+    try:lessons=community.videos(token,room)
+    except PermissionError:
+        clear_recording(token,room);st.info('Entre na sua sala para ver as aulas.');return
+    selected=st.session_state.get(selected_key)
+    # Streamlit removes the watch widget after leaving this view. Do not reopen
+    # a previous player automatically when the user comes back later.
+    if selected and (selected not in {v['id'] for v in lessons} or 'watch_'+selected not in st.session_state):
+        clear_recording(token,room);selected=None
     if not lessons:
-        empty('Aulas para assistir e rever','Publique a primeira aula para começar a biblioteca da turma.' if teacher else 'Os vídeos publicados pelo Professor ficarão disponíveis aqui a qualquer momento.','video')
-    grid=st.columns(2)
-    for index,video in enumerate(lessons):
-        with grid[index%2].container(border=True,key='lesson_video_'+video['id']):
-            st.html('<div class="prep-video-cover">'+icon('play')+'</div>')
-            st.caption('AULA GRAVADA · '+datetime.fromtimestamp(video['created'],LOCAL_ZONE).strftime('%d/%m/%Y'))
-            with st.expander(video['title']):
-                if st.button('Assistir',key='watch_'+video['id']):st.session_state['watch_'+video['id']+'_active']=True
-                if st.session_state.get('watch_'+video['id']+'_active'):
-                    st.video(video['url'] or community.video_media(token,video['id'],room),format=video['mime'] or 'video/mp4')
-                if teacher and st.button('Excluir vídeo',key='remove_video_'+video['id']):
-                    community.delete_video(token,video['id'],room);st.rerun()
+        clear_recording(token,room)
+        empty('Suas aulas ficam aqui','Publique um vídeo para começar.' if teacher else 'O Professor ainda não publicou vídeos.','video')
+        return
+    st.html('<div class="recordings-heading">'+str(len(lessons))+' '+('aula disponível' if len(lessons)==1 else 'aulas disponíveis')+'</div>')
+    def watch(identifier):
+        st.session_state[selected_key]=identifier
+        st.session_state.pop(source_key,None)
+    for video in lessons:
+        with st.container(key='recording_row_'+video['id']):
+            if teacher:info,play,more=st.columns([6,1.2,.5],vertical_alignment='center',gap='small')
+            else:
+                info,play=st.columns([6,1.2],vertical_alignment='center',gap='small');more=None
+            date=datetime.fromtimestamp(video['created'],LOCAL_ZONE).strftime('%d/%m/%Y')
+            info.html('<div class="recording-info"><span class="recording-symbol">'+icon('play')+'</span><div><strong>'+escape(video['title'])+'</strong><small>'+date+' · '+('Link' if video['url'] else 'Arquivo de vídeo')+'</small></div></div>')
+            play.button('Assistindo' if selected==video['id'] else 'Assistir',key='watch_'+video['id'],on_click=watch,args=(video['id'],),disabled=selected==video['id'],width='stretch')
+            if teacher:
+                with more.popover('⋯',help='Opções da aula',width='stretch'):
+                    if st.button('Excluir vídeo',key='remove_video_'+video['id']):
+                        community.delete_video(token,video['id'],room)
+                        if selected==video['id']:clear_recording(token,room)
+                        st.rerun(scope='fragment')
+    selected=st.session_state.get(selected_key)
+    video=next((v for v in lessons if v['id']==selected),None)
+    with st.container(key='recording_player'):
+        if video is None:
+            st.html('<div class="recording-player-empty">'+icon('play')+'<span>Escolha uma aula acima para assistir.</span></div>')
+            return
+        heading,close=st.columns([4,1],vertical_alignment='center')
+        heading.markdown('**'+video['title'].replace('*','').replace('<','').replace('>','')+'**')
+        close.button('Fechar vídeo',icon=':material/close:',on_click=clear_recording,args=(token,room),width='stretch')
+        try:
+            cached=st.session_state.get(source_key)
+            if not cached or cached[0]!=video['id']:
+                with st.spinner('Preparando vídeo…'):
+                    source=video['url'] or community.video_media(token,video['id'],room)
+                if not source:raise ValueError('O arquivo deste vídeo está indisponível.')
+                cached=(video['id'],source);st.session_state[source_key]=cached
+            st.video(cached[1],format=video['mime'] or 'video/mp4',autoplay=False)
+        except (OSError,ValueError,PermissionError):
+            clear_recording(token,room);st.error('Não foi possível abrir a aula. Tente novamente.')
 
 
 def release_live_view(token,room):

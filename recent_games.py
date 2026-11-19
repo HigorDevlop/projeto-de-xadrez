@@ -88,7 +88,7 @@ def cards_data(history, username, estimates):
 
 _RECENT = st.components.v2.component(
     'recent_chesscom_games', html='<section class="recent-grid" aria-label="Últimas oito partidas do Chess.com"></section><nav class="recent-pages" aria-label="Páginas de partidas"></nav>',
-    css='''
+    css="""
     article{background:linear-gradient(150deg,#242424,#1c1c1c 45%,#181818)!important;border-color:#383838!important;box-shadow:inset 0 1px 0 #ffffff0d,inset 0 -1px 0 #00000040,0 3px 8px #00000040,0 12px 24px #0000001f}
 
     .recent-grid {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:20px;color:var(--ink);font-family:'Segoe UI',system-ui,sans-serif}
@@ -128,7 +128,9 @@ _RECENT = st.components.v2.component(
     .recent-pages:empty{display:none}.recent-pages button{background:var(--surface);color:var(--ink);border:1px solid var(--border);border-radius:6px;padding:6px 12px;cursor:var(--club-cursor-link,pointer)}
     .recent-pages button[aria-current=page]{background:var(--accent-soft)}
     @media(prefers-reduced-motion:reduce){article,.actions button{transition:none}}
-    ''',
+    
+/* Coach HUD */
+article{background:linear-gradient(145deg,#073149,#031327)!important;border:1px solid #17617b!important;border-radius:4px!important;box-shadow:inset 0 1px #00e9f418!important}.game-number{color:#ff9b4e!important}button{border-radius:3px!important}""",
     js='''export default function({data,parentElement,setTriggerValue}) {
       const host=parentElement.host ?? parentElement;
       const theme=data.theme ?? (data.dark ?

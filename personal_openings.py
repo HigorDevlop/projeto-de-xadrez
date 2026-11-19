@@ -1,5 +1,8 @@
 """Rank a player's archived opening decisions and calculate local UCI lines."""
 from hashlib import sha256
+from functools import lru_cache
+from pathlib import Path
+import csv
 import io
 import os
 import subprocess
@@ -15,6 +18,15 @@ def storage_key(owner, account):
     return owner + '|chesscom:' + account.strip().lower()
 
 
+def latest_history(games, account):
+    user=account.strip().lower();unique={}
+    for game in games:
+        if not isinstance(game,dict) or not isinstance(game.get('pgn'),str):continue
+        if user not in [str(game.get(side,{}).get('username','')).lower() for side in ('white','black')]:continue
+        unique[game.get('url') or game['pgn']]=game
+    return sorted(unique.values(),key=lambda game:game.get('end_time',0),reverse=True)[:200]
+
+
 def remember_history(owner, account, games):
     key = storage_key(owner, account) + '|history'
     saved = load_plan(key, namespace='openings') or {}
@@ -26,7 +38,7 @@ def remember_history(owner, account, games):
         if user not in [str(item.get(side, {}).get('username', '')).lower() for side in ('white', 'black')]:
             continue
         merged[item.get('url') or item['pgn']] = item
-    records = sorted(merged.values(), key=lambda g: g.get('end_time', 0), reverse=True)
+    records = latest_history(merged.values(),account)
     if records != saved.get('games', []):
         save_plan(dict(version=1, username=key, games=records), namespace='openings')
     return records
@@ -67,8 +79,9 @@ def positions(games, account, max_ply=20):
     return sorted(rows.values(), key=lambda row: (-row['count'], len(row['prefix']), row['fen']))
 
 
-def prepare(owner, account, games, count=12, depth=20, seconds=1.0, engine_factory=None):
-    candidates = positions(games, account)[:count]
+def prepare(owner, account, games, count=12, depth=20, seconds=1.0, engine_factory=None, *, candidates=None):
+    games=latest_history(games,account)
+    candidates = (positions(games, account) if candidates is None else candidates)[:count]
     if not candidates:
         raise ValueError('Importe partidas padrão desse usuário do Chess.com antes de preparar o repertório.')
     path = find_engine()
@@ -109,4 +122,64 @@ def prepare(owner, account, games, count=12, depth=20, seconds=1.0, engine_facto
     plan = new_plan(storage_key(owner, account), today(), today(), [{'id':'personal','opening':'Seu repertório','side':'both'}])
     plan.update(repertoire_mode=True, repertoire_ids=[], personal_lines=lines, chesscom_account=account,
                 training_days={}, retention={}, source_games=len(games), engine=name,recommendation_version=2)
+    return plan
+
+
+@lru_cache(maxsize=1)
+def family_anchors():
+    """Only defining opening moves; do not generate the full static curriculum."""
+    shortest={}
+    for path in (Path(__file__).parent/'data/openings').glob('*.tsv'):
+        with path.open(encoding='utf-8-sig') as source:
+            for row in csv.DictReader(source,delimiter='\t'):
+                name=row['name'].split(':')[0]
+                tokens=[word for word in row['pgn'].split() if not word.endswith('.')]
+                old=shortest.get(name)
+                if old is None or len(tokens)<len(old):shortest[name]=tokens
+    result=[]
+    for name,tokens in shortest.items():
+        board=chess.Board();moves=[]
+        for token in tokens:
+            move=board.parse_san(token);moves.append(move.uci());board.push(move)
+        if len(moves)<=12:result.append((tuple(moves),name))
+    return sorted(result,key=lambda item:len(item[0]),reverse=True)
+
+
+def trail_positions(games,account,count=12):
+    groups={};anchors=family_anchors()
+    for item in latest_history(games,account):
+        game=chess.pgn.read_game(io.StringIO(item['pgn']))
+        if not game or game.errors or game.board().fen()!=chess.STARTING_FEN:continue
+        moves=tuple(move.uci() for move in game.mainline_moves())
+        matched=next(((prefix,name) for prefix,name in anchors if moves[:len(prefix)]==prefix),None)
+        if not matched:continue
+        prefix,name=matched
+        side='white' if str(item['white']['username']).lower()==account.lower() else 'black'
+        group=groups.setdefault((name,side),dict(games=[],prefix=prefix))
+        group['games'].append(item)
+    ranked=sorted(groups.items(),key=lambda item:-len(item[1]['games']))
+    result=[]
+    # Round-robin across frequent openings: one early position cannot consume all slots.
+    queues=[]
+    for (name,side),group in ranked:
+        rows=[row for row in positions(group['games'],account) if row['side']==side and
+              tuple(row['prefix'][:len(group['prefix'])])==group['prefix']]
+        for row in rows:
+            row.update(opening=name,opening_frequency=len(group['games']))
+        queues.append(rows[:4])
+    for index in range(4):
+        for rows in queues:
+            if index<len(rows):result.append(rows[index])
+            if len(result)>=count:return result
+    return result
+
+
+def prepare_history_trails(owner,account,games,**kwargs):
+    games=latest_history(games,account)
+    rows=trail_positions(games,account)
+    plan=prepare(owner,account,games,candidates=rows,**kwargs)
+    for line in plan['personal_lines']:
+        row=next(row for row in rows if row['prefix']==line['moves'][:line['context_plies']] and row['side']==line['side'])
+        line['opening_frequency']=row['opening_frequency']
+    plan['recommendation_version']=3
     return plan

@@ -35,7 +35,7 @@ def answer(plan, session, correct=True):
 
 def reach(plan, session, target):
     for _ in range(100):
-        if session['ply'] == target:
+        if session.get('quiz_key',session['ply']) == target:
             return
         answer(plan, session)
     raise AssertionError('A posição não retornou')
@@ -49,7 +49,7 @@ def test_error_recovery_fallback_persistence_and_conservation(tmp_path, monkeypa
     assert Counter(session['quiz_states'].values()) == {'pending': len(initial)}
     stale = event(plan, session)
     answer(plan, session, False)
-    assert session['ply'] == initial[1]  # Advance immediately, without Next.
+    assert session.get('quiz_key',session['ply']) == initial[1]  # Advance immediately, without Next.
     assert session['quiz_states'][str(target)] == 'wrong'
     assert not session.get('ui_checkpoint')
     snapshot = deepcopy(session)
@@ -86,7 +86,7 @@ def test_error_recovery_fallback_persistence_and_conservation(tmp_path, monkeypa
 
 def test_hint_does_not_skip_error_recovery():
     plan, session = practice()
-    target = session['ply']
+    target = session.get('quiz_key',session['ply'])
     answer(plan, session, False)
     reach(plan, session, target)
     assert request_hint(plan, session)
@@ -101,7 +101,7 @@ def test_random_reinsertion_is_not_always_last_and_single_position_terminates():
     assert {reinsert_index(str(i), i, 0, 5) for i in range(100)} == {1,2,3,4,5}
     assert reinsert_index('one', 1, 0, 0) == 0
     plan, session = practice()
-    target = session['ply']
+    target = session.get('quiz_key',session['ply'])
     session['quiz_queue'] = [target]
     session['quiz_states'] = {str(target): 'wrong'}
     answer(plan, session)

@@ -38,6 +38,57 @@ def acknowledged(data, ply, sequence):
             'navigation': True, 'navigation_ack': sequence, 'last': data['frames'][ply]['last']}
 
 
+def test_held_key_does_not_skip_moves_and_notes_keep_their_nodes(browser_page):
+    page = browser_page
+    data = navigation_data()
+    game = chess.pgn.read_game(StringIO(PGN))
+    board = game.board()
+    notes = []
+    for ply, move in enumerate(game.mainline_moves(), 1):
+        notes.append({'ply': ply, 'number': (ply + 1) // 2,
+                      'side': 'white' if ply % 2 else 'black', 'san': board.san(move)})
+        board.push(move)
+    data['analysisNotes'] = notes
+    mount(page, 'interactive_board.py', data)
+    page.evaluate('''() => {
+        window.noteNodes=[...document.querySelectorAll('.notes-list [data-ply]')];
+        document.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight'}));
+        for(let i=0;i<10;i++)document.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',repeat:true}));
+    }''')
+    assert page.locator('.move-counter').inner_text() == f'Lance 1 de {data["total"]}'
+    page.keyboard.press('ArrowRight')
+    assert page.locator('.move-counter').inner_text() == f'Lance 2 de {data["total"]}'
+    assert page.evaluate('window.noteNodes.every((node,i)=>node===document.querySelectorAll(".notes-list [data-ply]")[i])')
+    assert page.locator('.notes-list [aria-current=true]').get_attribute('data-ply') == '2'
+    page.wait_for_function('window.events.length > 0')
+    page.evaluate('(data)=>window.render(data)', acknowledged(data, 2, 2))
+    assert page.locator('.move-counter').inner_text() == f'Lance 2 de {data["total"]}'
+
+
+def test_board_rows_stay_equal_during_piece_animation(browser_page):
+    page = browser_page
+    mount(page, 'interactive_board.py', navigation_data())
+    sizes = page.evaluate('''async () => {
+        const result=[];
+        for(let move=0;move<8;move++){
+            document.querySelector('[data-nav=next]').click();
+            for(let frame=0;frame<3;frame++){
+                await new Promise(resolve=>requestAnimationFrame(resolve));
+                const board=document.querySelector('.board').getBoundingClientRect();
+                const cells=[...document.querySelectorAll('.square')].map(cell=>cell.getBoundingClientRect());
+                result.push({width:board.width,height:board.height,
+                    smallest:Math.min(...cells.map(cell=>cell.height)),
+                    largest:Math.max(...cells.map(cell=>cell.height))});
+            }
+        }
+        return result;
+    }''')
+    for size in sizes:
+        assert abs(size['largest'] - size['smallest']) < 1
+        assert abs(size['width'] - size['height']) < 1
+        assert abs(size['height'] - sizes[0]['height']) < 1
+
+
 @pytest.mark.parametrize('control', ['keyboard', 'buttons'])
 def test_thirty_steps_paint_locally_and_send_one_final_position(browser_page, control):
     page = browser_page

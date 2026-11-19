@@ -6,9 +6,8 @@ import unicodedata
 
 import chess
 
-from chess_review import CATEGORIES, position_key, canonical_category
+from chess_review import position_key
 from strategy import describe
-from tutor import move_ideas, position_facts
 
 
 TOPICS = {
@@ -75,6 +74,7 @@ class BookReference:
     quote: str
     match: str
     topics: tuple[str, ...] = ()
+    position: str = ''
 
 
 class BookStudy:
@@ -107,44 +107,15 @@ class BookStudy:
             sentence = max(sentences, key=lambda sentence: len(relevant_topics & passage_topics(sentence)))
             quote = sentence if len(sentence) <= 480 else sentence[:477].rsplit(' ', 1)[0] + '…'
             references.append(BookReference(passage.source, quote, 'posição exata' if i in exact else 'tema relacionado',
-                                            tuple(sorted(relevant_topics & passage_topics(sentence)))))
+                                            tuple(sorted(relevant_topics & passage_topics(sentence))), position_key(board)))
         return references
 
 
 def explain_from_books(board, study, review=None, references=None):
+    from move_evidence import build, text
     refs = study.references(board) if references is None else references
-    paragraphs = []
-    if refs:
-        for i, ref in enumerate(refs, 1):
-            # Preserve original evidence internally; never present an English quote
-            # or claim that a topic summary is a translation of the source.
-            topics = ', '.join(ref.topics) or 'a posição registrada'
-            paragraphs.append(f'Referência [{i}] ({ref.source}): material relacionado a {topics}.')
-    else:
-        paragraphs.append('Não foi encontrado trecho correspondente nos livros carregados.' if study.passages
-                          else 'Nenhum livro com texto foi carregado; vamos examinar os fatos do tabuleiro.')
-    if board.is_game_over():
-        paragraphs.extend(position_facts(board))
-    elif board.move_stack:
-        before = board.copy()
-        move = before.pop()
-        details = move_ideas(before, move)
-        paragraphs.append('Nesta partida: ' + '. '.join(text.rstrip('.') for text in details['facts'][:2]) + '.')
-        topics = sorted({topic for ref in refs if ref.match == 'tema relacionado' for topic in ref.topics})
-        if topics:
-            paragraphs.append('Observe ' + ', '.join(topics) + ' ao comparar a atividade das peças e a resposta adversária.')
-    else:
-        paragraphs.extend(position_facts(board)[:2])
-    if review:
-        paragraphs.append(f'Pela avaliação do {review.engine_name}, {review.san} é classificado como {CATEGORIES[canonical_category(review.category)].label}, '
-                          f'com perda de {review.expected_loss * 100:.1f} pontos percentuais no indicador de chances.')
-        if not board.is_game_over() and review.line:
-            paragraphs.append(f'Continuação calculada a partir do lance jogado: {review.line}.')
-        if review.uci and review.best_san != review.san:
-            paragraphs.append(f'A melhor alternativa calculada antes do lance era {review.best_san}.')
-        if review.sources:
-            paragraphs.append('Linha catalogada em: ' + '; '.join(review.sources[:2]) + '.')
-    return ' '.join(paragraphs), refs
+    evidence = build(board, review, refs, has_books=bool(study.passages))
+    return text(evidence), evidence['references']
 
 
 def prepare_explanations(game, study, cancel):
